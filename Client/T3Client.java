@@ -12,21 +12,29 @@ public class T3Client{
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
         sendTCP();
-        sendUDP();
+        // sendUDP();
 
     }
 
     private static void sendTCP() {
         try (Socket sock = new Socket(HOST, PORT)) {
             System.out.println("starting TCP");
+
+            // write command to server
+            String command = "LIST";
+            OutputStream out = sock.getOutputStream();
+            String header = command.length() + " ";
+            out.write((header+command).getBytes());
+
+            // read and print server response
+            String serverReply = "";
             InputStream in = sock.getInputStream();
-            String result = "";
             int readChar = 0;
             while ((readChar = in.read()) != -1) {
-                result += (char)readChar;
+                serverReply += (char)readChar;
             }
-            System.out.println(result);
-            sock.close();
+            System.out.println(serverReply);
+
         }
         catch (IOException ex) {
             ex.printStackTrace();
