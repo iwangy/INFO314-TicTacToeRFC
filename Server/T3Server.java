@@ -13,23 +13,13 @@ public class T3Server {
     private static int PORT;
 
     // might change to HashMap<String, GameState>
-    private static HashMap<Long, String> sessions;
-    private static long gameIndex = 0;
+    private static HashMap<String, GameState> games;
 
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
-        sessions = new HashMap<>();
+        games = new HashMap<>();
         executorService.submit(T3Server::tcp);
         executorService.submit(T3Server::udp);
-    }
-
-    private static String getSessions() {
-        if (sessions.size() == 0) return "no games available";
-        String result = "";
-        for (Map.Entry<Long, String> mapElement : sessions.entrySet()) {
-            result += mapElement.getKey() + ", ";
-        }
-        return result.substring(0, result.length() - 2);
     }
 
     private static void tcp() {
@@ -42,34 +32,53 @@ public class T3Server {
 
                 // read client command
                 InputStream in = socket.getInputStream();
-                String clientCommand = readClient(in);
+                Map<String, String> clientCommand = readClient(in);
                 // System.out.println(clientCommand);
+                OutputStream out = socket.getOutputStream();
 
                 // handle command
-                String reply = "";
-                switch (clientCommand) {
+                String sessionID = "";
+                switch (clientCommand.get("command")) {
+                    case "HELO":
+                        sessionID = generateRandomString();
+//                        do something here to get the version...
+                        sendResponse(out, "SESS 1 " + sessionID);
                     case "CREA":
-                        reply = "JOND";
-                        sessions.put(gameIndex, "temp");
-                        gameIndex++;
+                        // "JOND " CID " " + GID <- return format needs to be like this
+                        String gid = generateRandomString();
+                        GameState newGame = new GameState();
+                        // find a way to get the player name and playerID
+                        newGame.join("Jason", "playerID");
+                        games.put(gid, newGame);
+                        sendResponse(out, "JOND " + gid + " " + games.get(gid));
                         break;
                     case "LIST":
-                        reply = getSessions();
+                        sendResponse(out, "GAMS " + getGames());
                         break;
-                    case "JOIN":
-                        reply = "JOND";
+                    case "JOIN": // join a given game
+                        String clientSentGID = "";
+                        sendResponse(out, "JOND " + games.get(clientSentGID)); // "JOND " CID " " + GID <- return format needs to be like thi
+                        break;
+                    case "QUIT":
+//                        get game ID from client
+//                        String gid
+//                        sendResponse(out, gid);
+                        socket.close();
+                        break;
+                    case "STAT":
+                        break;
+                    case "MOV":
+                        break;
+                    case "GDBY":
+                        socket.close();
+                        break;
 
-                        break;
                     default:
-                        reply = "command does not exist";
+                        sendResponse(out, "command does not exist");
+                        socket.close();
                         break;
                 }
 
-                // reply to client
-                OutputStream out = socket.getOutputStream();
-                out.write(reply.getBytes(StandardCharsets.UTF_8));
-                out.close();
-                socket.close();
             }
         }
         catch(Exception ex) {
@@ -77,18 +86,58 @@ public class T3Server {
         }
     }
 
-    private static String readClient(InputStream in) {
+    private static void sendResponse(OutputStream out, String message) {
+        try {
+            //Gson gson = new Gson(); // chatgpt didn't have this line
+//            JsonObject jsonObject = new JsonObject();
+//            jsonObject.addProperty("message", message);
+//            JsonObject dataObject = new JsonObject();
+//            dataObject.addProperty("clientIdentifer", )
+
+
+            out.write(message.getBytes(StandardCharsets.UTF_8));
+            out.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static String generateRandomString() {
+        UUID uuid = UUID.randomUUID();
+        return uuid.toString();
+    }
+
+    private static String getGames() {
+        if (games.size() == 0) return "no games available";
+        String result = "";
+        for (Map.Entry<String, String> mapElement : games.entrySet()) {
+            result += mapElement.getKey() + ", ";
+        }
+        return result.substring(0, result.length() - 2);
+    }
+
+
+    // NEED TO FIX TO READ THINGS
+    private static Map<String, String> readClient(InputStream in) {
+
         try {
             String contentLength = "";
             int readChar1 = 0;
-            while((readChar1 = in.read()) != ' ') {
+
+            while((readChar1 = in.read()) != '\n') {
                 contentLength += (char)readChar1;
             }
 
-            String clientCommand = "";
+            String clientRequest = "";
             for (int i = 0; i < Integer.valueOf(contentLength); i++) {
-                clientCommand += (char)in.read();
+                clientRequest += (char)in.read();
             }
+            String[] clientRequestArr = clientRequest.split(": ");
+            Map<String, String> clientCommand = new HashMap<>();
+            for (int i = 0; i < clientRequestArr.length; i+=2) {
+                clientCommand.put(clientRequestArr[i], clientRequestArr[i + 1]);
+            }
+
             return clientCommand;
         } catch (Exception e) {
             e.printStackTrace();;

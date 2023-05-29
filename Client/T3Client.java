@@ -21,10 +21,28 @@ public class T3Client{
             System.out.println("starting TCP");
 
             // write command to server
-            String command = "LIST";
             OutputStream out = sock.getOutputStream();
-            String header = command.length() + " ";
-            out.write((header+command).getBytes());
+
+            String version = "1";
+            String command = "CREA";
+            String parameters = "JasonIsCool";
+            // session id will be empty until the client calls HELO
+            String sessionid = "";
+            // player id will also be empty until the client calls HELO
+            String playerid = "";
+
+            String contentLength = "1";
+
+            /*
+            content-length: x\n
+            version: x\n
+            session-id: x\n
+            parameters \n
+            command
+             */
+
+
+            out.write("temp".getBytes());
 
             // read and print server response
             String serverReply = "";
