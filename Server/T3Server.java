@@ -1,7 +1,6 @@
 package Server;
 
 import org.json.JSONObject;
-
 import java.util.*;
 import java.io.*;
 import java.net.*;
@@ -92,7 +91,7 @@ public class T3Server {
                 case "CREA":
                     // "JOND " CID " " + GID <- return format needs to be like this
                     String gid = generateRandomString();
-                    GameState newGame = new GameState();
+                    GameState newGame = new GameState(gid);
                     // find a way to get the player name and playerID
                     String playerID = clientReqJson.getString("clientID");
                     newGame.join("Jason", playerID);
@@ -100,7 +99,40 @@ public class T3Server {
                     sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
                     break;
                 case "LIST":
-                    sendResponse("GAMS " + getGames(), out);
+                    String body = clientReqJson.getString("body");
+//                    List<String, Integer> gamesIds = new ArrayList<>();
+                    Map <String, Integer> gamesIds = new HashMap<>();
+
+                    if (body.equals("CURR")) {
+                        for(String key: games.keySet()) {
+                            if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
+                                gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                            }
+                        }
+                    } else if (body.equals("ALL")) {
+                        for(String key: games.keySet()) {
+                            if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
+                                gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                            }
+                        }
+                    } else {
+                        for(String key: games.keySet()) {
+                            if(games.get(key).getStatus() == 1 ) {
+                                gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                            }
+                        }
+                    }
+
+                    StringBuilder gamesList = new StringBuilder();
+                    for (Map.Entry<String, Integer> entry: gamesIds.entrySet()) {
+                        String gameID = entry.getKey();
+                        Integer status = entry.getValue();
+                        gamesList.append(gameID).append(" ").append(status).append("\n");
+                    }
+
+                    String legend = "0: open, 1: in-play, 2: finished";
+
+                    sendResponse("GAMS " + legend + "\n" + gamesList, out);
                     break;
                 case "JOIN": // join a given game
                     String clientSentGID = "";

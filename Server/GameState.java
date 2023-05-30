@@ -12,17 +12,23 @@ public class GameState {
     private int turn;
     private String[][] board;
     private int winner;
+    private String gameID;
 
     /*
     constructs the gamestate object
      */
-    public GameState() {
+    public GameState(String gameID) {
         gameStatus = 0;
         players = new String[2];
         playerids = new String[2];
         turn = 0;
         board = new String[3][3];
         winner = -1;
+        this.gameID = gameID;
+    }
+
+    public String getGameID() {
+        return this.gameID;
     }
 
     /*
@@ -38,6 +44,7 @@ public class GameState {
         } else if (players[1] == null) {
             players[1] = playerName;
             playerids[1] = playerId;
+            this.gameStatus = 1;
             return 0;
         } else {
             System.out.println("game is full");
@@ -51,6 +58,7 @@ public class GameState {
     post:   makes the player move,  and return a 0 status code.
             if coordinates are out of bounds, return 1
             if spot alrady taken, return 2
+            if player wins, return 3
      */
     public int move(int x, int y) {
         // check if the x or y coordinates are out of bounds
@@ -73,8 +81,64 @@ public class GameState {
         // make move
         this.board[x][y] = marker;
 
+        // check if anyone won the game
+        winner = checkWin();
+        if (winner != -1) {
+            // do stuff to stop game
+            this.gameStatus = 2;
+            return 3;
+        }
+
+        // switch player turn
+        turn = turn ^ 1;
 
         return 0;
+    }
+
+    /*
+    post:   if player 1 wins, return 0
+            if player 2 wins, return 1
+            else, return -1
+     */
+    private int checkWin(){
+
+        String marker = turn == 0 ? "X" : "O";
+        Boolean win = false;
+
+        // check diagonal
+        win = (this.checkThree(this.board[0][0], this.board[1][1], this.board[2][2]) || 
+                        2] || 
+                this.checkThree(this.board[0][2], this.board[1][1], this.board[2][0]));
+
+        // check rows
+        for (int i = 0; i < 3; i++) {
+            if (this.checkThree(this.board[0][i], this.board[1][i], this.board[2][i])) {
+                win = true;
+            }
+        }
+
+        // check columns
+        for (int i = 0; i < 3; i++) {
+            if (this.checkThree(this.board[i][0], this.board[i][1], this.board[i][2])) {
+                win = true;
+            }
+        }
+
+        if (win) {
+            if (marker.equals("X")) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+        return -1;
+    }
+
+    /*
+    post:   checks if the 3 strings are the same
+     */
+    private boolean checkThree(String s1, String s2, String s3) {
+        return s1 != null && s1.equals(s2) && s2.equals(s3);
     }
 
     public int getStatus() {
