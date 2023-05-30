@@ -9,7 +9,6 @@ public class T3Client{
 
     private static String HOST;
     private static int PORT;
-
     private static String clientID;
 
     public static void main(String... args) {
@@ -25,7 +24,6 @@ public class T3Client{
                 sendUDP();
                 break;
             default:
-//                System.out.println("Unacceptable connection type: " + args[0]);
         }
     }
 
@@ -64,7 +62,6 @@ public class T3Client{
                         break;
                     case HELO:
                         // All these come from user input args
-
                         String playerId = "clientID@uw.edu";
                         clientID = playerId;
                         String version = "1";
@@ -118,26 +115,17 @@ public class T3Client{
 
                 }
                 // read and print server response
-                String serverReply = "";
+                StringBuilder serverReply = new StringBuilder();
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
                 String line;
                 while((line = bufferedReader.readLine()) != null) {
                     if(line.isEmpty()) {
                         break;
                     }
-                    serverReply += line;
+                    serverReply.append(line).append("\n");
                 }
                 System.out.println(serverReply);
             }
-            // write command to server
-
-            /*
-            content-length: x\n
-            version: x\n
-            session-id: x\n
-            parameters \n
-            command
-             */
 
         }
         catch (IOException ex) {

@@ -4,7 +4,6 @@ import org.json.JSONObject;
 import java.util.*;
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -13,7 +12,6 @@ public class T3Server {
     private static ExecutorService executorService = Executors.newFixedThreadPool(10);
     private static int PORT;
 
-    // might change to HashMap<String, GameState>
     private static HashMap<String, GameState> games;
 
     public static void main(String... args) {
@@ -68,7 +66,6 @@ public class T3Server {
     private static void tcp(Socket socket) throws IOException {
         System.out.println("TCP: Received TCP request");
         while(socket != null) {
-            // read client command
             InputStream in = socket.getInputStream();
             OutputStream out = socket.getOutputStream();
 
@@ -99,7 +96,6 @@ public class T3Server {
                     sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
                     break;
                 case "LIST":
-//                    List<String, Integer> gamesIds = new ArrayList<>();
                     Map <String, Integer> gamesIds = new HashMap<>();
 
                     if (clientReqJson.has("body") && clientReqJson.getString("body").equals("CURR")) {
@@ -122,16 +118,14 @@ public class T3Server {
                         }
                     }
 
-                    StringBuilder gamesList = new StringBuilder();
+                    StringBuilder gamesList = new StringBuilder("0: open, 1: in-play, 2: finished \n");
                     for (Map.Entry<String, Integer> entry: gamesIds.entrySet()) {
                         String gameID = entry.getKey();
                         Integer status = entry.getValue();
                         gamesList.append(gameID).append(" ").append(status).append("\n");
                     }
-
-                    String legend = "0: open, 1: in-play, 2: finished";
-
-                    sendResponse("GAMS " + legend + "\n" + gamesList + "\n", out);
+                    System.out.println(gamesList);
+                    sendResponse("GAMS "+ gamesList + "\r", out);
                     break;
                 case "JOIN": // join a given game
                     String clientSentGID = "";
@@ -160,14 +154,8 @@ public class T3Server {
 
     private static void sendResponse(String message, OutputStream out) {
         try {
-            //Gson gson = new Gson(); // chatgpt didn't have this line
-//            JsonObject jsonObject = new JsonObject();
-//            jsonObject.addProperty("message", message);
-//            JsonObject dataObject = new JsonObject();
-//            dataObject.addProperty("clientIdentifer", )
-
             System.out.println("Sending server response...");
-            out.write(message.getBytes(StandardCharsets.UTF_8));
+            out.write(message.getBytes());
             System.out.println("server response sent!");
         } catch (IOException e) {
             throw new RuntimeException(e);
