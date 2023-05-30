@@ -1,5 +1,7 @@
 package Server;
 
+import org.json.JSONObject;
+
 import java.util.*;
 import java.io.*;
 import java.net.*;
@@ -25,39 +27,45 @@ public class T3Server {
     private static void tcp() {
         System.out.println("TCP: Server is listening on port " + PORT);
         try (ServerSocket server = new ServerSocket(PORT)) {
-            Socket socket = null;
-            while((socket = server.accept()) != null) {
-                System.out.println("TCP: Received TCP request");
-                final Socket threadSocket = socket;
-
+            Socket socket = server.accept();
+            System.out.println("TCP: Received TCP request");
+            while(socket != null) {
                 // read client command
                 InputStream in = socket.getInputStream();
-                Map<String, String> clientCommand = readClient(in);
-                // System.out.println(clientCommand);
                 OutputStream out = socket.getOutputStream();
 
+                String clientRequest = readClient(in);
+                System.out.println("received client request: \n" + clientRequest);
+                if(clientRequest == null) {
+                    sendResponse("bad request, please try again", out);
+                    socket.close();
+                    return ;
+                }
+
+                JSONObject clientReqJson = new JSONObject(clientRequest);
                 // handle command
-                String sessionID = "";
-                switch (clientCommand.get("command")) {
+                String sessionID;
+                switch (clientReqJson.getString("command")) {
                     case "HELO":
                         sessionID = generateRandomString();
-//                        do something here to get the version...
-                        sendResponse(out, "SESS 1 " + sessionID);
+                        sendResponse("SESS " + sessionID + " " + clientReqJson.getString("clientID") + "\n\r", out);
+                        break;
                     case "CREA":
                         // "JOND " CID " " + GID <- return format needs to be like this
                         String gid = generateRandomString();
                         GameState newGame = new GameState();
                         // find a way to get the player name and playerID
-                        newGame.join("Jason", "playerID");
+                        String playerID = clientReqJson.getString("clientID");
+                        newGame.join("Jason", playerID);
                         games.put(gid, newGame);
-                        sendResponse(out, "JOND " + gid + " " + games.get(gid));
+                        sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
                         break;
                     case "LIST":
-                        sendResponse(out, "GAMS " + getGames());
+                        sendResponse("GAMS " + getGames(), out);
                         break;
                     case "JOIN": // join a given game
                         String clientSentGID = "";
-                        sendResponse(out, "JOND " + games.get(clientSentGID)); // "JOND " CID " " + GID <- return format needs to be like thi
+                        sendResponse("JOND " + games.get(clientSentGID), out); // "JOND " CID " " + GID <- return format needs to be like thi
                         break;
                     case "QUIT":
 //                        get game ID from client
@@ -72,13 +80,11 @@ public class T3Server {
                     case "GDBY":
                         socket.close();
                         break;
-
                     default:
-                        sendResponse(out, "command does not exist");
+                        sendResponse("command does not exist", out);
                         socket.close();
                         break;
                 }
-
             }
         }
         catch(Exception ex) {
@@ -86,7 +92,7 @@ public class T3Server {
         }
     }
 
-    private static void sendResponse(OutputStream out, String message) {
+    private static void sendResponse(String message, OutputStream out) {
         try {
             //Gson gson = new Gson(); // chatgpt didn't have this line
 //            JsonObject jsonObject = new JsonObject();
@@ -94,9 +100,9 @@ public class T3Server {
 //            JsonObject dataObject = new JsonObject();
 //            dataObject.addProperty("clientIdentifer", )
 
-
+            System.out.println("Sending server response...");
             out.write(message.getBytes(StandardCharsets.UTF_8));
-            out.close();
+            System.out.println("server response sent!");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -110,7 +116,7 @@ public class T3Server {
     private static String getGames() {
         if (games.size() == 0) return "no games available";
         String result = "";
-        for (Map.Entry<String, String> mapElement : games.entrySet()) {
+        for (Map.Entry<String, GameState> mapElement : games.entrySet()) {
             result += mapElement.getKey() + ", ";
         }
         return result.substring(0, result.length() - 2);
@@ -118,31 +124,42 @@ public class T3Server {
 
 
     // NEED TO FIX TO READ THINGS
-    private static Map<String, String> readClient(InputStream in) {
+    private static String readClient(InputStream in) {
 
         try {
-            String contentLength = "";
-            int readChar1 = 0;
-
-            while((readChar1 = in.read()) != '\n') {
-                contentLength += (char)readChar1;
+            StringBuilder payload = new StringBuilder();
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
+            String line;
+            while((line = bufferedReader.readLine()) != null) {
+                if(line.isEmpty()) {
+                    break;
+                }
+                payload.append(line);
             }
 
-            String clientRequest = "";
-            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
-                clientRequest += (char)in.read();
-            }
-            String[] clientRequestArr = clientRequest.split(": ");
-            Map<String, String> clientCommand = new HashMap<>();
-            for (int i = 0; i < clientRequestArr.length; i+=2) {
-                clientCommand.put(clientRequestArr[i], clientRequestArr[i + 1]);
-            }
-
-            return clientCommand;
+            return payload.toString();
+//            String contentLength = "";
+//            int readChar1 = 0;
+//
+//            while((readChar1 = in.read()) != '\n') {
+//                contentLength += (char)readChar1;
+//            }
+//
+//            String clientRequest = "";
+//            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
+//                clientRequest += (char)in.read();
+//            }
+//            String[] clientRequestArr = clientRequest.split(": ");
+//            Map<String, String> clientCommand = new HashMap<>();
+//            for (int i = 0; i < clientRequestArr.length; i+=2) {
+//                clientCommand.put(clientRequestArr[i], clientRequestArr[i + 1]);
+//            }
+//
+//            return clientCommand;
         } catch (Exception e) {
             e.printStackTrace();;
         }
-        return "";
+        return null;
     }
 
     private static void udp() {

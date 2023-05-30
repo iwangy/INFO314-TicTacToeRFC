@@ -2,36 +2,105 @@ package Client;
 
 import java.io.*;
 import java.net.*;
+import java.util.Scanner;
+import java.util.UUID;
 
 public class T3Client{
 
     private static String HOST;
     private static int PORT;
 
+    private static String clientID;
+
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
-        sendTCP();
-        // sendUDP();
-
+        switch (args[0].toLowerCase()) {
+            case "tcp":
+                sendTCP();
+                break;
+            case "udp":
+                sendUDP();
+                break;
+            default:
+                System.out.println("Unacceptable connection type: " + args[0]);
+        }
     }
 
     private static void sendTCP() {
+        System.out.println("starting TCP");
+
         try (Socket sock = new Socket(HOST, PORT)) {
-            System.out.println("starting TCP");
-
-            // write command to server
             OutputStream out = sock.getOutputStream();
+            InputStream in = sock.getInputStream();
 
-            String version = "1";
-            String command = "CREA";
-            String parameters = "JasonIsCool";
-            // session id will be empty until the client calls HELO
-            String sessionid = "";
-            // player id will also be empty until the client calls HELO
-            String playerid = "";
+            while(true) {
+                System.out.println("Please specify your command");
+                Scanner scanner = new Scanner(System.in);
 
-            String contentLength = "1";
+                String[] command = scanner.nextLine().split(" ");
+
+                ClientMessageMethod method = ClientMessageMethod.fromString(command[0]);
+                if(method == null) {
+                    System.out.println("Unacceptable request");
+                    out.close();
+                    break;
+                }
+
+                switch (method) {
+                    case CREA:
+                        String CREARequest = String.format(
+                                "{command:%s," +
+                                "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), clientID
+                        );
+                        System.out.println("sending client request...");
+                        out.write(CREARequest.getBytes());
+                        System.out.println("client request sent");
+                        break;
+                    case GDBY:
+                        break;
+                    case HELO:
+                        // All these come from user input args
+                        String version = "1";
+
+                        String playerid = "clientID@uw.edu";
+                        clientID = playerid;
+
+                        String HELORequest = String.format(
+                                "{command:%s," +
+                                "version:%s," +
+                                "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerid
+                        );
+                        System.out.println("sending client request...");
+                        out.write(HELORequest.getBytes());
+                        System.out.println("client request sent");
+                        break;
+                    case JOIN:
+                        break;
+                    case LIST:
+                        break;
+                    case MOVE:
+                        break;
+                    case QUIT:
+                        break;
+                    case STAT:
+                        break;
+                    default:
+
+                }
+                // read and print server response
+                String serverReply = "";
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
+                String line;
+                while((line = bufferedReader.readLine()) != null) {
+                    if(line.isEmpty()) {
+                        break;
+                    }
+                    serverReply += line;
+                }
+                System.out.println(serverReply);
+            }
+            // write command to server
 
             /*
             content-length: x\n
@@ -40,18 +109,6 @@ public class T3Client{
             parameters \n
             command
              */
-
-
-            out.write("temp".getBytes());
-
-            // read and print server response
-            String serverReply = "";
-            InputStream in = sock.getInputStream();
-            int readChar = 0;
-            while ((readChar = in.read()) != -1) {
-                serverReply += (char)readChar;
-            }
-            System.out.println(serverReply);
 
         }
         catch (IOException ex) {
@@ -79,4 +136,27 @@ public class T3Client{
         }
     }
 
+}
+
+
+enum ClientMessageMethod {
+    CREA("CREA"), GDBY("GDBY"), HELO("HELO"), JOIN("JOIN"), LIST("LIST"), MOVE("MOVE"), QUIT("QUIT"), STAT("STAT");
+
+    private final String value;
+    ClientMessageMethod(String value) {
+        this.value = value;
+    }
+
+    public String getValue() {
+        return this.value;
+    }
+
+    public static ClientMessageMethod fromString(String str) {
+        for(ClientMessageMethod method: ClientMessageMethod.values()) {
+            if(method.getValue().equals(str)) {
+                return method;
+            }
+        }
+        return null;
+    }
 }
