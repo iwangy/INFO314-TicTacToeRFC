@@ -99,8 +99,7 @@ public class T3Client{
                             LISTRequest = String.format(
                                     "{command:%s," +
                                             "version:%s," +
-                                            "clientID:%s" +
-                                            "body:null}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId
+                                            "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId
                             );
                         }
 

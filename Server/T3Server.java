@@ -99,17 +99,16 @@ public class T3Server {
                     sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
                     break;
                 case "LIST":
-                    String body = clientReqJson.getString("body");
 //                    List<String, Integer> gamesIds = new ArrayList<>();
                     Map <String, Integer> gamesIds = new HashMap<>();
 
-                    if (body.equals("CURR")) {
+                    if (clientReqJson.has("body") && clientReqJson.getString("body").equals("CURR")) {
                         for(String key: games.keySet()) {
                             if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
                                 gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
                             }
                         }
-                    } else if (body.equals("ALL")) {
+                    } else if (clientReqJson.has("body") && clientReqJson.getString("body").equals("ALL")) {
                         for(String key: games.keySet()) {
                             if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
                                 gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
@@ -132,7 +131,7 @@ public class T3Server {
 
                     String legend = "0: open, 1: in-play, 2: finished";
 
-                    sendResponse("GAMS " + legend + "\n" + gamesList, out);
+                    sendResponse("GAMS " + legend + "\n" + gamesList + "\n", out);
                     break;
                 case "JOIN": // join a given game
                     String clientSentGID = "";
