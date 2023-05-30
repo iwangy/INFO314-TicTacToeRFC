@@ -59,8 +59,12 @@ public class GameState {
             if coordinates are out of bounds, return 1
             if spot alrady taken, return 2
             if player wins, return 3
+            if it is not the player's turn, return 4
      */
-    public int move(int x, int y) {
+    public int move(int x, int y, String playerid) {
+        // check if it is the player's turn
+        if (!playerids[turn].equals(playerid)) return 4;
+
         // check if the x or y coordinates are out of bounds
         if (x < 1 || x > 3) {
             return 1;
@@ -74,7 +78,7 @@ public class GameState {
         y--;
 
         // check if the spot is already taken
-        if (this.board[x][y] != null) return 2;
+        if (board[x][y] != null) return 2;
 
         String marker = turn == 0 ? "X" : "O";
 
@@ -82,15 +86,16 @@ public class GameState {
         this.board[x][y] = marker;
 
         // check if anyone won the game
-        winner = checkWin();
-        if (winner != -1) {
+        int potentialWinner = checkWin();
+        if (potentialWinner != -1) {
             // do stuff to stop game
             this.gameStatus = 2;
+            this.winner = potentialWinner;
             return 3;
         }
 
         // switch player turn
-        turn = turn ^ 1;
+        this.turn = this.turn ^ 1;
 
         return 0;
     }
@@ -103,23 +108,22 @@ public class GameState {
     private int checkWin(){
 
         String marker = turn == 0 ? "X" : "O";
-        Boolean win = false;
+        boolean win = false;
 
         // check diagonal
-        win = (this.checkThree(this.board[0][0], this.board[1][1], this.board[2][2]) || 
-                        2] || 
-                this.checkThree(this.board[0][2], this.board[1][1], this.board[2][0]));
+        win = (checkThree(board[0][0], board[1][1], board[2][2]) ||
+                checkThree(board[0][2], board[1][1], board[2][0]));
 
         // check rows
         for (int i = 0; i < 3; i++) {
-            if (this.checkThree(this.board[0][i], this.board[1][i], this.board[2][i])) {
+            if (checkThree(board[0][i], board[1][i], board[2][i])) {
                 win = true;
             }
         }
 
         // check columns
         for (int i = 0; i < 3; i++) {
-            if (this.checkThree(this.board[i][0], this.board[i][1], this.board[i][2])) {
+            if (checkThree(board[i][0], this.board[i][1], this.board[i][2])) {
                 win = true;
             }
         }
@@ -141,8 +145,31 @@ public class GameState {
         return s1 != null && s1.equals(s2) && s2.equals(s3);
     }
 
+    public String displayBoard() {
+        String result = "";
+
+        for (int i = 0; i < 3; i++) {
+            result += " | ";
+            for (int j = 0; j < 3; j++) {
+                String val = "";
+                 if (board[i][j] == null) {
+                     val = "*";
+                 } else {
+                     val = board[i][j];
+                 }
+                 result += val + " | ";
+            }
+            result += "\n";
+        }
+        return result;
+    }
+
     public int getStatus() {
         return gameStatus;
+    }
+
+    public String getWinner() {
+        return players[winner];
     }
 
 }

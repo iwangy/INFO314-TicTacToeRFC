@@ -15,7 +15,9 @@ public class T3Client{
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
-        switch (args[0].toLowerCase()) {
+        String temp = "tcp";
+        //switch (args[0].toLowerCase()) {
+        switch (temp.toLowerCase()) {
             case "tcp":
                 sendTCP();
                 break;
@@ -23,7 +25,7 @@ public class T3Client{
                 sendUDP();
                 break;
             default:
-                System.out.println("Unacceptable connection type: " + args[0]);
+//                System.out.println("Unacceptable connection type: " + args[0]);
         }
     }
 
@@ -42,7 +44,7 @@ public class T3Client{
 
                 ClientMessageMethod method = ClientMessageMethod.fromString(command[0]);
 
-                if(method == null ) {
+                if(method == null) {
                     System.out.println("Unacceptable request");
                     out.close();
                     break;
@@ -65,7 +67,6 @@ public class T3Client{
 
                         String playerId = "clientID@uw.edu";
                         clientID = playerId;
-
                         String version = "1";
                         String HELORequest = String.format(
                                 "{command:%s," +
@@ -79,22 +80,30 @@ public class T3Client{
                     case JOIN:
                         break;
                     case LIST:
-                        ClientMessageMethod body = "HI";
-                        if (command[1] != null) {
-                            body = ClientMessageMethod.fromString(command[1]);
-                        }
+                        ClientMessageMethod body = null;
 
                         version = "1";
                         
                         playerId = "ClientID@uw.edu";
                         clientID = playerId;
+                        String LISTRequest = "";
+                        if (command.length > 1) {
+                            body = ClientMessageMethod.fromString(command[1]);
+                            LISTRequest = String.format(
+                                    "{command:%s," +
+                                            "version:%s," +
+                                            "clientID:%s," +
+                                            "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId, body.getValue()
+                            );
+                        } else {
+                            LISTRequest = String.format(
+                                    "{command:%s," +
+                                            "version:%s," +
+                                            "clientID:%s" +
+                                            "body:null}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId
+                            );
+                        }
 
-                        String LISTRequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId, body.getValue()
-                        );
                         System.out.println("sending client request...");
                         out.write(LISTRequest.getBytes());
                         System.out.println("client request sent");
@@ -161,7 +170,11 @@ public class T3Client{
 
 
 enum ClientMessageMethod {
-    CREA("CREA"), GDBY("GDBY"), HELO("HELO"), JOIN("JOIN"), LIST("LIST"), MOVE("MOVE"), QUIT("QUIT"), STAT("STAT"), CURR("CURR"), ALL("ALL");
+    CREA("CREA"), GDBY("GDBY"),
+    HELO("HELO"), JOIN("JOIN"),
+    LIST("LIST"), MOVE("MOVE"),
+    QUIT("QUIT"), STAT("STAT"),
+    CURR("CURR"), ALL("ALL");
 
     private final String value;
     ClientMessageMethod(String value) {

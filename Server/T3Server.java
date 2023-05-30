@@ -117,7 +117,7 @@ public class T3Server {
                         }
                     } else {
                         for(String key: games.keySet()) {
-                            if(games.get(key).getStatus() == 1 ) {
+                            if(games.get(key).getStatus() == 0 ) {
                                 gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
                             }
                         }
