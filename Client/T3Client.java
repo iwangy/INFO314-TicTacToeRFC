@@ -50,9 +50,11 @@ public class T3Client{
 
                 switch (method) {
                     case CREA:
+                        String version = "1";
                         String CREARequest = String.format(
                                 "{command:%s," +
-                                "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), clientID
+                                "version:%s," +
+                                "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
                         );
                         System.out.println("sending client request...");
                         out.write(CREARequest.getBytes());
@@ -62,9 +64,10 @@ public class T3Client{
                         break;
                     case HELO:
                         // All these come from user input args
+
                         String playerId = "clientID@uw.edu";
                         clientID = playerId;
-                        String version = "1";
+                        version = "1";
                         String HELORequest = String.format(
                                 "{command:%s," +
                                 "version:%s," +
@@ -75,9 +78,31 @@ public class T3Client{
                         System.out.println("client request sent");
                         break;
                     case JOIN:
+                        ClientMessageMethod body = null;
+
+                        if (command.length > 1) {
+//                            body = ClientMessageMethod.fromString(command[1]);
+//                            System.out.println(body);
+                            //System.out.println(command[1]);
+                            String gameID = command[1];
+
+                            playerId = "clientID@uw.edu";
+                            clientID = playerId;
+                            version = "1";
+                            String JOINRequest = String.format(
+                                "{command:%s," +
+                                "version:%s," +
+                                "clientID:%s," +
+                                "body:%s}\n\r", ClientMessageMethod.JOIN.getValue(), version, playerId, gameID
+                            );
+                            out.write(JOINRequest.getBytes());
+                        } else {
+                            System.out.println("You must include a game ID for the JOIN command");
+                        }
+
                         break;
                     case LIST:
-                        ClientMessageMethod body = null;
+                        body = null;
 
                         version = "1";
                         
@@ -86,11 +111,12 @@ public class T3Client{
                         String LISTRequest = "";
                         if (command.length > 1) {
                             body = ClientMessageMethod.fromString(command[1]);
+                            System.out.println(body);
                             LISTRequest = String.format(
-                                    "{command:%s," +
-                                            "version:%s," +
-                                            "clientID:%s," +
-                                            "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId, body.getValue()
+                                "{command:%s," +
+                                "version:%s," +
+                                "clientID:%s," +
+                                "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId, body.getValue()
                             );
                         } else {
                             LISTRequest = String.format(
@@ -110,7 +136,29 @@ public class T3Client{
                     case QUIT:
                         break;
                     case STAT:
+                         body = null;
+                        if (command.length > 1) {
+//                            body = ClientMessageMethod.fromString(command[1]);
+//                            System.out.println(body);
+                            //System.out.println(command[1]);
+                            String gameID = command[1];
+
+                            playerId = "clientID@uw.edu";
+                            clientID = playerId;
+                            version = "1";
+                            String STATRequest = String.format(
+                                    "{command:%s," +
+                                            "version:%s," +
+                                            "clientID:%s," +
+                                            "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, playerId, gameID
+                            );
+                            out.write(STATRequest.getBytes());
+                        } else {
+                            System.out.println("You must include a game ID for the STAT command");
+                        }
+
                         break;
+
                     default:
 
                 }
@@ -154,7 +202,6 @@ public class T3Client{
     }
 
 }
-
 
 enum ClientMessageMethod {
     CREA("CREA"), GDBY("GDBY"),

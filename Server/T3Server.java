@@ -128,8 +128,18 @@ public class T3Server {
                     sendResponse("GAMS "+ gamesList + "\r", out);
                     break;
                 case "JOIN": // join a given game
-                    String clientSentGID = "";
-                    sendResponse("JOND " + games.get(clientSentGID), out); // "JOND " CID " " + GID <- return format needs to be like thi
+                    //System.out.println("HERE");
+                    String gameID = clientReqJson.getString("body");
+                    playerID = clientReqJson.getString("clientID");
+
+
+                    GameState game = games.get(gameID);
+                    game.join("Jason", playerID);
+                    if (game.getStatus() == 1) {
+//                       also have to implement logic to "Once this message is sent, the server will not accept any move commands from a client other than the one whose identifier was included in this message."
+                        sendResponse("YRMV " + playerID + " " + gameID + "\n\r", out);
+                    }
+                    sendResponse("JOND " + playerID + " " + gameID + "\n\r", out); // "JOND " CID " " + GID <- return format needs to be like thi
                     break;
                 case "QUIT":
 //                        get game ID from client
@@ -138,6 +148,13 @@ public class T3Server {
                     socket.close();
                     break;
                 case "STAT":
+                    gameID = clientReqJson.getString("body");
+                    System.out.println(gameID);
+
+                    game = games.get(gameID);
+                    int gameStat = game.getStatus();
+                    sendResponse("STAT " + gameID + " " + gameStat + "\n\r", out);
+
                     break;
                 case "MOV":
                     break;
