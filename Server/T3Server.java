@@ -91,7 +91,7 @@ public class T3Server {
                     GameState newGame = new GameState(gid);
                     // find a way to get the player name and playerID
                     String playerID = clientReqJson.getString("clientID");
-                    newGame.join("Jason", playerID);
+                    newGame.join(playerID);
                     games.put(gid, newGame);
                     sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
                     break;
@@ -131,15 +131,18 @@ public class T3Server {
                     //System.out.println("HERE");
                     String gameID = clientReqJson.getString("body");
                     playerID = clientReqJson.getString("clientID");
-
-
-                    GameState game = games.get(gameID);
-                    game.join("Jason", playerID);
-                    if (game.getStatus() == 1) {
+                    if (games.get(gameID) == null) {
+                        sendResponse("game does not exist\n\r", out);
+                    } else {
+                        GameState game = games.get(gameID);
+                        game.join(playerID);
+                        if (game.getStatus() == 1) {
 //                       also have to implement logic to "Once this message is sent, the server will not accept any move commands from a client other than the one whose identifier was included in this message."
-                        sendResponse("YRMV " + playerID + " " + gameID + "\n\r", out);
+                            sendResponse("YRMV " + playerID + " " + gameID + "\n\r", out);
+                        }
+                        sendResponse("JOND " + playerID + " " + gameID + "\n\r", out); // "JOND " CID " " + GID <- return format needs to be like thi
                     }
-                    sendResponse("JOND " + playerID + " " + gameID + "\n\r", out); // "JOND " CID " " + GID <- return format needs to be like thi
+
                     break;
                 case "QUIT":
 //                        get game ID from client
@@ -151,12 +154,18 @@ public class T3Server {
                     gameID = clientReqJson.getString("body");
                     System.out.println(gameID);
 
-                    game = games.get(gameID);
+                    GameState game = games.get(gameID);
                     int gameStat = game.getStatus();
                     sendResponse("STAT " + gameID + " " + gameStat + "\n\r", out);
 
                     break;
-                case "MOV":
+                case "MOVE":
+                    //String spot = clientReqJson.getString("spot");
+                    String gameid = clientReqJson.getString("gameid");
+                    System.out.println("hello, this is MOVE!!!");
+
+                    //System.out.println(clientReqJson.getString("gameid"));
+                    sendResponse("testing\n\r", out);
                     break;
                 case "GDBY":
                     socket.close();

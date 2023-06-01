@@ -11,6 +11,8 @@ public class T3Client{
     private static int PORT;
     private static String clientID;
 
+    private static String version;
+
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
@@ -50,7 +52,7 @@ public class T3Client{
 
                 switch (method) {
                     case CREA:
-                        String version = "1";
+                        // String version = "1";
                         String CREARequest = String.format(
                                 "{command:%s," +
                                 "version:%s," +
@@ -64,10 +66,15 @@ public class T3Client{
                         break;
                     case HELO:
                         // All these come from user input args
+                        if (command.length != 3) {
+                            System.out.println("please provide all arguments");
+                            continue;
+                        }
 
-                        String playerId = "clientID@uw.edu";
+                        String playerId = command[2];
+                        // String playerId = "clientID@uw.edu";
                         clientID = playerId;
-                        version = "1";
+                        version = command[1];
                         String HELORequest = String.format(
                                 "{command:%s," +
                                 "version:%s," +
@@ -86,18 +93,16 @@ public class T3Client{
                             //System.out.println(command[1]);
                             String gameID = command[1];
 
-                            playerId = "clientID@uw.edu";
-                            clientID = playerId;
-                            version = "1";
                             String JOINRequest = String.format(
                                 "{command:%s," +
                                 "version:%s," +
                                 "clientID:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.JOIN.getValue(), version, playerId, gameID
+                                "body:%s}\n\r", ClientMessageMethod.JOIN.getValue(), version, clientID, gameID
                             );
                             out.write(JOINRequest.getBytes());
                         } else {
                             System.out.println("You must include a game ID for the JOIN command");
+                            continue;
                         }
 
                         break;
@@ -132,6 +137,19 @@ public class T3Client{
 
                         break;
                     case MOVE:
+                        if (command.length != 3) {
+                            System.out.println("please provide all arguments");
+                            continue;
+                        }
+                        String gameIdentifier = command[1];
+                        String spot = command[2];
+                        String MOVERequest = String.format(
+                                "{command:%s," +
+                                "gameid:%s," +
+                                "spot:%s}\n\r", ClientMessageMethod.MOVE.getValue(), gameIdentifier, spot
+                        );
+                        out.write(MOVERequest.getBytes());
+
                         break;
                     case QUIT:
                         break;
@@ -155,12 +173,13 @@ public class T3Client{
                             out.write(STATRequest.getBytes());
                         } else {
                             System.out.println("You must include a game ID for the STAT command");
+                            continue;
                         }
 
                         break;
 
                     default:
-
+                        System.out.println("something went wrong");
                 }
                 // read and print server response
                 StringBuilder serverReply = new StringBuilder();

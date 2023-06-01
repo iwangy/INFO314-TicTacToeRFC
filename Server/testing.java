@@ -3,8 +3,8 @@ package Server;
 public class testing {
     public static void main(String... args) {
         GameState game = new GameState("jason is cool lmao");
-        game.join("Jason", "jasonid");
-        game.join("Henry", "henryid");
+        game.join("jasonid");
+        game.join("henryid");
 
         System.out.println(game.move(2, 2, "jasonid"));
         System.out.println(game.displayBoard());

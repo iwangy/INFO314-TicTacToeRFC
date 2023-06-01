@@ -7,7 +7,6 @@ public class GameState {
     2 : game is over
      */
     private int gameStatus;
-    private String[] players;
     private String[] playerids;
     private int turn;
     private String[][] board;
@@ -19,7 +18,6 @@ public class GameState {
      */
     public GameState(String gameID) {
         gameStatus = 0;
-        players = new String[2];
         playerids = new String[2];
         turn = 0;
         board = new String[3][3];
@@ -36,13 +34,11 @@ public class GameState {
     post:   adds the player into the game and returns a 0
             else, returns a 1
     */
-    public int join(String playerName, String playerId) {
-        if (players[0] == null) {
-            players[0] = playerName;
+    public int join(String playerId) {
+        if (playerids[0] == null) {
             playerids[0] = playerId;
             return 0;
-        } else if (players[1] == null) {
-            players[1] = playerName;
+        } else if (playerids[1] == null) {
             playerids[1] = playerId;
             this.gameStatus = 1;
             return 0;
@@ -169,7 +165,7 @@ public class GameState {
     }
 
     public String getWinner() {
-        return players[winner];
+        return playerids[winner];
     }
 
 }
