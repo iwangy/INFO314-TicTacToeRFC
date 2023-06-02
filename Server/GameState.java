@@ -29,11 +29,19 @@ public class GameState {
         return this.gameID;
     }
 
+    public String[] getPlayerids() {
+        return playerids;
+    }
+
+    public int getTurn() {
+        return turn;
+    }
+
     /*
-    pre:    a player name
-    post:   adds the player into the game and returns a 0
-            else, returns a 1
-    */
+			pre:    a player name
+			post:   adds the player into the game and returns a 0
+					else, returns a 1
+			*/
     public int join(String playerId) {
         if (playerids[0] == null) {
             playerids[0] = playerId;

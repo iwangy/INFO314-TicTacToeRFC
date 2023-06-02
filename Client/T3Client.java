@@ -13,10 +13,13 @@ public class T3Client{
 
     private static String version;
 
+    private static boolean waitingServer;
+
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
         String temp = "tcp";
+        waitingServer = false;
         //switch (args[0].toLowerCase()) {
         switch (temp.toLowerCase()) {
             case "tcp":
@@ -37,6 +40,12 @@ public class T3Client{
             InputStream in = sock.getInputStream();
 
             while(true) {
+                if (waitingServer) {
+                    readServerResponse(in);
+                    waitingServer = false;
+                    continue;
+                }
+
                 System.out.println("Please specify your command");
                 Scanner scanner = new Scanner(System.in);
 
@@ -61,6 +70,8 @@ public class T3Client{
                         System.out.println("sending client request...");
                         out.write(CREARequest.getBytes());
                         System.out.println("client request sent");
+                        readServerResponse(in);
+                        waitingServer = true;
                         break;
                     case GDBY:
                         break;
@@ -110,9 +121,6 @@ public class T3Client{
                         body = null;
 
                         version = "1";
-                        
-                        playerId = "ClientID@uw.edu";
-                        clientID = playerId;
                         String LISTRequest = "";
                         if (command.length > 1) {
                             body = ClientMessageMethod.fromString(command[1]);
@@ -121,13 +129,13 @@ public class T3Client{
                                 "{command:%s," +
                                 "version:%s," +
                                 "clientID:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId, body.getValue()
+                                "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID, body.getValue()
                             );
                         } else {
                             LISTRequest = String.format(
                                     "{command:%s," +
                                             "version:%s," +
-                                            "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, playerId
+                                            "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID
                             );
                         }
 
@@ -137,6 +145,7 @@ public class T3Client{
 
                         break;
                     case MOVE:
+                        // should be able to handle cartesian (x, y) or linear value
                         if (command.length != 3) {
                             System.out.println("please provide all arguments");
                             continue;
@@ -145,10 +154,13 @@ public class T3Client{
                         String spot = command[2];
                         String MOVERequest = String.format(
                                 "{command:%s," +
-                                "gameid:%s," +
-                                "spot:%s}\n\r", ClientMessageMethod.MOVE.getValue(), gameIdentifier, spot
+                                "clientID:%s," +
+                                "gameID:%s," +
+                                "spot:\"%s\"}\n\r", ClientMessageMethod.MOVE.getValue(), clientID, gameIdentifier, spot
                         );
+                        System.out.println("sending client request...");
                         out.write(MOVERequest.getBytes());
+                        System.out.println("client request sent");
 
                         break;
                     case QUIT:
@@ -161,14 +173,11 @@ public class T3Client{
                             //System.out.println(command[1]);
                             String gameID = command[1];
 
-                            playerId = "clientID@uw.edu";
-                            clientID = playerId;
                             version = "1";
                             String STATRequest = String.format(
                                     "{command:%s," +
                                             "version:%s," +
-                                            "clientID:%s," +
-                                            "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, playerId, gameID
+                                            "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, gameID
                             );
                             out.write(STATRequest.getBytes());
                         } else {
@@ -182,22 +191,28 @@ public class T3Client{
                         System.out.println("something went wrong");
                 }
                 // read and print server response
-                StringBuilder serverReply = new StringBuilder();
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
-                String line;
-                while((line = bufferedReader.readLine()) != null) {
-                    if(line.isEmpty()) {
-                        break;
-                    }
-                    serverReply.append(line).append("\n");
+                if (!waitingServer) {
+                    readServerResponse(in);
                 }
-                System.out.println(serverReply);
             }
 
-        }
-        catch (IOException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
+    }
+
+    private static void readServerResponse(InputStream in) throws IOException {
+        // read and print server response
+        StringBuilder serverReply = new StringBuilder();
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
+        String line;
+        while((line = bufferedReader.readLine()) != null) {
+            if(line.isEmpty()) {
+                break;
+            }
+            serverReply.append(line).append("\n");
+        }
+        System.out.println(serverReply);
     }
 
     private static void sendUDP() {

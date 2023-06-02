@@ -1,5 +1,6 @@
 package Server;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 import java.util.*;
 import java.io.*;
@@ -13,10 +14,12 @@ public class T3Server {
     private static int PORT;
 
     private static HashMap<String, GameState> games;
+    private static HashMap<String, OutputStream> clientInWaiting;
 
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
         games = new HashMap<>();
+        clientInWaiting = new HashMap<>();
 
         try {
             ServerSocket tcpSocket = new ServerSocket(PORT);
@@ -80,22 +83,32 @@ public class T3Server {
             JSONObject clientReqJson = new JSONObject(clientRequest);
             // handle command
             String sessionID;
+            String clientID;
             switch (clientReqJson.getString("command")) {
                 case "HELO":
                     sessionID = generateRandomString();
-                    sendResponse("SESS " + sessionID + " " + clientReqJson.getString("clientID") + "\n\r", out);
+                    clientID = clientReqJson.getString("clientID");
+                    if (!clientInWaiting.containsKey(clientID)) {
+                        sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
+                    }
                     break;
                 case "CREA":
                     // "JOND " CID " " + GID <- return format needs to be like this
-                    String gid = generateRandomString();
-                    GameState newGame = new GameState(gid);
-                    // find a way to get the player name and playerID
-                    String playerID = clientReqJson.getString("clientID");
-                    newGame.join(playerID);
-                    games.put(gid, newGame);
-                    sendResponse("JOND " + gid + " " + games.get(gid) + "\n\r", out);
+                    clientID = clientReqJson.getString("clientID");
+                    if (!clientInWaiting.containsKey(clientID)) {
+                        String gid = generateRandomString();
+                        GameState newGame = new GameState(gid);
+                        newGame.join(clientID);
+                        games.put(gid, newGame);
+                        clientInWaiting.put(clientID, out);
+                        sendResponse("JOND " + gid + "\n\r", out);
+                    }
                     break;
                 case "LIST":
+                    clientID = clientReqJson.getString("clientID");
+                    if(clientInWaiting.containsKey(clientID)) {
+                        break;
+                    }
                     Map <String, Integer> gamesIds = new HashMap<>();
 
                     if (clientReqJson.has("body") && clientReqJson.getString("body").equals("CURR")) {
@@ -130,17 +143,24 @@ public class T3Server {
                 case "JOIN": // join a given game
                     //System.out.println("HERE");
                     String gameID = clientReqJson.getString("body");
-                    playerID = clientReqJson.getString("clientID");
+                    clientID = clientReqJson.getString("clientID");
                     if (games.get(gameID) == null) {
                         sendResponse("game does not exist\n\r", out);
                     } else {
                         GameState game = games.get(gameID);
-                        game.join(playerID);
-                        if (game.getStatus() == 1) {
-//                       also have to implement logic to "Once this message is sent, the server will not accept any move commands from a client other than the one whose identifier was included in this message."
-                            sendResponse("YRMV " + playerID + " " + gameID + "\n\r", out);
+                        String opponent = game.getPlayerids()[0];
+                        if (game.join(clientID) == 1) { // this game is full!
+                            sendResponse("gameID " + gameID + " is full!" + "\n\r", out);
+                            break;
                         }
-                        sendResponse("JOND " + playerID + " " + gameID + "\n\r", out); // "JOND " CID " " + GID <- return format needs to be like thi
+                        sendResponse("JOND " + clientID + " " + gameID + "\r", out); // "JOND " CID " " + GID <- return format needs to be like this
+
+                        if (game.getStatus() == 1) { // ready to start!
+//                       also have to implement logic to "Once this message is sent, the server will not accept any move commands from a client other than the one whose identifier was included in this message."
+                            sendResponse("YRMV " + opponent + " " + gameID + "\n\r", clientInWaiting.get(opponent));
+                            sendResponse("YRMV " + opponent + " " + gameID + "\n\r", out);
+                        }
+                        clientInWaiting.remove(opponent);
                     }
 
                     break;
@@ -160,12 +180,27 @@ public class T3Server {
 
                     break;
                 case "MOVE":
-                    //String spot = clientReqJson.getString("spot");
-                    String gameid = clientReqJson.getString("gameid");
-                    System.out.println("hello, this is MOVE!!!");
+                    gameID = clientReqJson.getString("gameID");
+                    clientID = clientReqJson.getString("clientID");
+                    String spot = clientReqJson.getString("spot");;
 
-                    //System.out.println(clientReqJson.getString("gameid"));
-                    sendResponse("testing\n\r", out);
+                    CoordinatePair coordinatePair = new CoordinatePair(spot);
+                    GameState curGame = games.get(gameID);
+
+                    int moveResult = curGame.move(coordinatePair.getY(), coordinatePair.getX(), clientID);
+                    if (moveResult == 0) {
+                        String[] players = curGame.getPlayerids();
+                        String nextMoveClient = curGame.getPlayerids()[curGame.getTurn() ^ 1];
+                        sendResponse("BORD " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n" + curGame.displayBoard() + "\n\r", out);
+                    } else if(moveResult == 1) {
+                        sendResponse("this move is out of bound" + "\n\r", out);
+                    } else if (moveResult == 2) {
+                        sendResponse("this move is already taken" + "\n\r", out);
+                    } else if (moveResult == 3) {
+                        sendResponse(clientID + " wins! " + "\n\r", out);
+                    } else {
+                        sendResponse("Not your turn!" + "\n\r", out);
+                    }
                     break;
                 case "GDBY":
                     socket.close();
@@ -266,5 +301,28 @@ public class T3Server {
         }
     }
 
+    private static class CoordinatePair{
+        private final int x;
+        private final int y;
+
+        public CoordinatePair(String spot) {
+            String[] coordinates = spot.split(",");
+            if (coordinates.length == 1) { // e.g 8
+                this.x = Integer.parseInt(coordinates[0]) % 3; // x = 2
+                this.y = Integer.parseInt(coordinates[0]) / 3 + 1; // y = 3
+            } else { // e.g (2, 1)
+                this.x = Integer.parseInt(coordinates[0]); // x = 2
+                this.y = 3 - Integer.parseInt(coordinates[1]) + 1; // y = 3
+            }
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+    }
 
 }
