@@ -23,6 +23,7 @@ public class T3Server {
 
         try {
             ServerSocket tcpSocket = new ServerSocket(PORT);
+//            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
             DatagramSocket udpSocket = new DatagramSocket(PORT);
 
             new Thread(() -> {
@@ -48,16 +49,16 @@ public class T3Server {
             new Thread(() -> {
                 System.out.println("UDP: Server is listening on port " + PORT);
 
-                DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
                 while (true) {
-                    try {
-                        udpSocket.receive(request);
+                    //try {
+                        //udpSocket.receive(request);
                         executorService.submit(() -> {
-                            udp(udpSocket, request);
+                            //udp(udpSocket, request);
+                            udp(udpSocket);
                         });
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+                    //} catch (IOException e) {
+                    //    throw new RuntimeException(e);
+                    //}
                 }
             }).start();
 
@@ -176,7 +177,7 @@ public class T3Server {
 
                     GameState game = games.get(gameID);
                     int gameStat = game.getStatus();
-                    sendResponse("STAT " + gameID + " " + gameStat + "\n\r", out);
+                    sendResponse("BORD " + gameID + " " + gameStat + "\n\r", out);
 
                     break;
                 case "MOVE":
@@ -277,27 +278,66 @@ public class T3Server {
         return null;
     }
 
-    private static void udp(DatagramSocket socket, DatagramPacket request) {
+    private static void udp(DatagramSocket socket) {
         try {
+            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
             while (true) {
                 socket.receive(request);
                 System.out.println("UDP: Received UDP request");
                 InetAddress clientAddress = request.getAddress();
                 int clientPort = request.getPort();
 
-                // handle commands here
-                String reply = "UDP Reply";
+                String requestData = new String(request.getData(), 0, request.getLength());
+                System.out.println(requestData);
 
+                String reply = "";
 
+                JSONObject clientReqJson = new JSONObject(requestData);
+                String sessionID;
+                String clientID;
+                switch (clientReqJson.getString("command")) {
+                    case "HELO":
+                        sessionID = generateRandomString();
+                        clientID = clientReqJson.getString("clientID");
+                        if (!clientInWaiting.containsKey(clientID)) {
+                            reply = "SESS " + sessionID + " " + clientID + "\n\r";
+                        }
+                        break;
+                    case "CREA":
+                        clientID = clientReqJson.getString("clientID");
+                        if (!clientInWaiting.containsKey(clientID)) {
+                            String gid = generateRandomString();
+                            GameState newGame = new GameState(gid);
+                            newGame.join(clientID);
+                            games.put(gid, newGame);
+                            //what do value to put in clientInWaiting??
+                            reply = "JOND " + gid + "\n\r";
+
+                            //clientInWaiting.put(clientID, out);
+                            //sendResponse("JOND " + gid + "\n\r", out);
+                        }
+                        break;
+                    default:
+                        reply = "command does not exist";
+                        break;
+                }
 
                 byte[] buffer = reply.getBytes();
                 DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
+                System.out.println("Sending response...");
                 socket.send(response);
-                socket.close();
+                System.out.println("Response sent!");
+                //udPSocket.close();//need to fix - keeps on closing after each CASE
             }
         }
         catch(IOException ex) {
             ex.printStackTrace();
+        }
+        finally {
+            // Close the socket outside the while loop
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
         }
     }
 

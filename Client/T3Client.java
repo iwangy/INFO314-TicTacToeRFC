@@ -18,7 +18,9 @@ public class T3Client{
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
-        String temp = "tcp";
+        //String temp = "tcp";
+        String temp = "udp";
+
         waitingServer = false;
         //switch (args[0].toLowerCase()) {
         switch (temp.toLowerCase()) {
@@ -63,9 +65,9 @@ public class T3Client{
                     case CREA:
                         // String version = "1";
                         String CREARequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
+                            "{command:%s," +
+                            "version:%s," +
+                            "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
                         );
                         System.out.println("sending client request...");
                         out.write(CREARequest.getBytes());
@@ -87,9 +89,9 @@ public class T3Client{
                         clientID = playerId;
                         version = command[1];
                         String HELORequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerId
+                            "{command:%s," +
+                            "version:%s," +
+                            "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerId
                         );
                         System.out.println("sending client request...");
                         out.write(HELORequest.getBytes());
@@ -133,9 +135,9 @@ public class T3Client{
                             );
                         } else {
                             LISTRequest = String.format(
-                                    "{command:%s," +
-                                            "version:%s," +
-                                            "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID
+                                "{command:%s," +
+                                "version:%s," +
+                                "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID
                             );
                         }
 
@@ -153,10 +155,10 @@ public class T3Client{
                         String gameIdentifier = command[1];
                         String spot = command[2];
                         String MOVERequest = String.format(
-                                "{command:%s," +
-                                "clientID:%s," +
-                                "gameID:%s," +
-                                "spot:\"%s\"}\n\r", ClientMessageMethod.MOVE.getValue(), clientID, gameIdentifier, spot
+                            "{command:%s," +
+                            "clientID:%s," +
+                            "gameID:%s," +
+                            "spot:\"%s\"}\n\r", ClientMessageMethod.MOVE.getValue(), clientID, gameIdentifier, spot
                         );
                         System.out.println("sending client request...");
                         out.write(MOVERequest.getBytes());
@@ -175,9 +177,9 @@ public class T3Client{
 
                             version = "1";
                             String STATRequest = String.format(
-                                    "{command:%s," +
-                                            "version:%s," +
-                                            "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, gameID
+                                "{command:%s," +
+                                "version:%s," +
+                                "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, gameID
                             );
                             out.write(STATRequest.getBytes());
                         } else {
@@ -218,18 +220,62 @@ public class T3Client{
     private static void sendUDP() {
         try (DatagramSocket sock = new DatagramSocket()) {
             InetAddress host = InetAddress.getByName(HOST);
-            // ignored message
-            String message = "hello";
-            DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
-            sock.send(packet);
+            while(true) {
+                Scanner scanner = new Scanner(System.in);
 
-            byte[] buffer = new byte[512];
-            DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
-            sock.receive(receivedPacket);
+                String[] command = scanner.nextLine().split(" ");
+                ClientMessageMethod method = ClientMessageMethod.fromString(command[0]);
 
-            System.out.println(new String(buffer, 0, receivedPacket.getLength()));
+                if(method == null) {
+                    System.out.println("Unacceptable request");
+                    sock.close();
+                }
 
-            sock.close();
+                String message = "";
+
+                switch (method) {
+                    case HELO:
+                        if (command.length != 3) {
+                            System.out.println("please provide all arguments");
+                        }
+
+                        String playerId = command[2];
+                        clientID = playerId;
+                        version = command[1];
+                        String HELORequest = String.format(
+                            "{command:%s," +
+                            "version:%s," +
+                            "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerId
+                        );
+                        System.out.println("sending client request...");
+                        message = HELORequest;
+                        DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
+                        sock.send(packet);
+                        System.out.println("client request sent");
+                        break;
+                    case CREA:
+                        String CREARequest = String.format(
+                            "{command:%s," +
+                            "version:%s," +
+                            "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
+                        );
+                        System.out.println("sending client request...");
+                        message = CREARequest;
+                        packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
+                        sock.send(packet);
+                        System.out.println("client request sent");
+                        waitingServer = true;
+                        break;
+                    default:
+                        System.out.println("something went wrong");
+                        break;
+                }
+                byte[] buffer = new byte[512];
+                DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
+                sock.receive(receivedPacket);
+                System.out.println(new String(buffer, 0, receivedPacket.getLength()));
+            }
+            //sock.close();
         } catch (IOException ex) {
             ex.printStackTrace();
         }
