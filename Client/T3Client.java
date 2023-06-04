@@ -2,6 +2,7 @@ package Client;
 
 import java.io.*;
 import java.net.*;
+import java.util.HashMap;
 
 public class T3Client{
 
@@ -21,19 +22,17 @@ public class T3Client{
             System.out.println("starting TCP");
 
             // write command to server
-            String command = "LIST";
+            String command = "CREA 1 C1ID";
+
+            // convert command into easier to read form
+            String payload = makePayload(command);
             OutputStream out = sock.getOutputStream();
-            String header = command.length() + " ";
-            out.write((header+command).getBytes());
+            out.write(payload.getBytes());
 
             // read and print server response
-            String serverReply = "";
             InputStream in = sock.getInputStream();
-            int readChar = 0;
-            while ((readChar = in.read()) != -1) {
-                serverReply += (char)readChar;
-            }
-            System.out.println(serverReply);
+            String response = readServer(in);
+            System.out.println(response);
 
         }
         catch (IOException ex) {
@@ -59,6 +58,38 @@ public class T3Client{
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+    }
+
+    private static String makePayload(String command) {
+        String result = "";
+
+        String[] commandArr = command.split(" ");
+        for (int i = 0; i < commandArr.length; i++) {
+            result += commandArr[i] + "\n";
+        }
+
+        int contentLength = result.length();
+
+        return contentLength + "\n" + result;
+    }
+
+    private static String readServer(InputStream in) {
+        try {
+            String contentLength = "";
+            int readChar1 = 0;
+            while((readChar1 = in.read()) != '\n') {
+                contentLength += (char)readChar1;
+            }
+
+            String serverResponse = "";
+            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
+                serverResponse += (char)in.read();
+            }
+            return serverResponse;
+        } catch (Exception e) {
+            e.printStackTrace();;
+        }
+        return null;
     }
 
 }
