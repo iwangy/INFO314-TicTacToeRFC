@@ -73,7 +73,7 @@ public class T3Client{
                         String opponentMsg = readServer(in);
                         try {
                             if(parseMOVResult(opponentMsg) == 3) {
-                                System.out.println(serverMsg);
+                                System.out.println(opponentMsg);
                                 sock.close();
                                 closed = true;
                                 break;

@@ -237,7 +237,8 @@ public class T3Server {
                 gameID = content.get(1);
                 // figure out how to get this too
                 String spot = content.get(2);
-                clientID = content.get(3);
+                clientID = clientSockets.get(socket[1]);
+
 
                 CoordinatePair coordinatePair = new CoordinatePair(spot);
                 GameState curGame = games.get(gameID);
