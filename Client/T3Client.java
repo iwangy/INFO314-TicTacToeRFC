@@ -31,8 +31,8 @@ public class T3Client{
 //            default:
 //        }
         waitingServer = false;
-        sendTCP();
-        // sendUDP();
+//        sendTCP();
+         sendUDP();
 
     }
 
@@ -82,7 +82,6 @@ public class T3Client{
                     }
                 }
 
-
                 // read and print server response
                 if (!waitingServer) {
                     String response = readServer(in);
@@ -100,6 +99,8 @@ public class T3Client{
         try (DatagramSocket sock = new DatagramSocket()) {
             InetAddress host = InetAddress.getByName(HOST);
             // ignored message
+
+
             String message = "hello";
             DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
             sock.send(packet);

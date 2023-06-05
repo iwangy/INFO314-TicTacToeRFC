@@ -44,21 +44,16 @@ public class T3Server {
                 }
             }).start();
 
-//            new Thread(() -> {
-//                System.out.println("UDP: Server is listening on port " + PORT);
-//
-//                while (true) {
-//                    //try {
-//                    //udpSocket.receive(request);
-//                    executorService.submit(() -> {
-//                        //udp(udpSocket, request);
-//                        udp(udpSocket);
-//                    });
-//                    //} catch (IOException e) {
-//                    //    throw new RuntimeException(e);
-//                    //}
-//                }
-//            }).start();
+            new Thread(() -> {
+                System.out.println("UDP: Server is listening on port " + PORT);
+
+                while (true) {
+                    executorService.submit(() -> {
+                        //udp(udpSocket, request);
+                        udp(udpSocket);
+                    });
+                }
+            }).start();
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -90,7 +85,7 @@ public class T3Server {
 
             // process client request
             OutputStream out = socket.getOutputStream();
-            processRequest(content, new Object[]{"tcp", out}, socket);
+            processRequest(content, new Object[]{"tcp", out}, new Object[]{"tcp", socket});
             /*
                 RESPONSE FORMAT
                 contentlength\n
@@ -104,7 +99,7 @@ public class T3Server {
         }
     }
 
-    private static void processRequest(HashMap<Integer, String> content, Object[] out, Socket socket) throws IOException {
+    private static void processRequest(HashMap<Integer, String> content, Object[] out, Object[] socket) throws IOException {
         String command = content.get(0);
         String clientID;
         String sessionID;
@@ -205,7 +200,9 @@ public class T3Server {
                 clientID = content.get(2);
                 game = games.get(gameID);
                 game.setGameStatusToDone(clientID);
-                socket.close();
+                if (((String)socket[0]).equals("tcp")) {
+                    ((Socket)socket[1]).close();
+                }
                 break;
             case "STAT":
                 /*
@@ -258,7 +255,9 @@ public class T3Server {
                 clientID = content.get(2);
                 game = games.get(gameID);
                 game.setGameStatusToDone(clientID);
-                socket.close();
+                if (((String)socket[0]).equals("tcp")) {
+                    ((Socket)socket[1]).close();
+                }
                 break;
             default:
                 sendResponse("Something went wrong" + "\n\r", out);
@@ -271,25 +270,31 @@ public class T3Server {
     }
 
     private static void udp(DatagramSocket socket) {
-        System.out.println("UDP: Server is listening on port " + PORT);
         try {
+            System.out.println("UDP: Server is listening on port " + PORT);
             while (true) {
                 DatagramPacket request = new DatagramPacket(new byte[512], 1);
                 socket.receive(request);
                 System.out.println("UDP: Received UDP request");
+
                 InetAddress clientAddress = request.getAddress();
                 int clientPort = request.getPort();
 
                 // read from client
+                byte[] requestData = request.getData();
 
                 // put client request into hashmap
+                // HashMap<Integer, String> content = readClient(new ByteArrayInputStream(requestData));
 
                 // process and send reply
+//                ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
+//                ObjectOutputStream responseOut = new ObjectOutputStream(responseStream);
+
+                // processRequest(content, new Object[]{"udp", responseOut}, new Object[]{"udp",socket});
 
                 String reply = "UDP Reply";
 
 
-                // all of this stuff will go in the sendresponse function
                 byte[] buffer = reply.getBytes();
                 DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
                 socket.send(response);
