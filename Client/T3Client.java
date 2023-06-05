@@ -16,7 +16,7 @@ public class T3Client{
 
     public static void main(String... args) {
         HOST = "localhost";
-        PORT = Integer.valueOf(31161);
+        PORT = Integer.valueOf(3116);
         System.out.println("Enter which protocol to use: tcp or udp");
         Scanner protocol = new Scanner(System.in);
         String temp = protocol.nextLine();

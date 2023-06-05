@@ -17,7 +17,7 @@ public class T3Server {
     private static HashMap<Object, String> clientSockets;
 
     public static void main(String... args) {
-        PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
+        PORT = args.length == 1 ? Integer.parseInt(args[0]) : 3116;
         games = new HashMap<>();
         clientInWaiting = new HashMap<>();
         clientSockets = new HashMap<>();
@@ -149,13 +149,13 @@ public class T3Server {
                     1 : optional parameters (ALL / CURR)
                 */
                 Map <String, Integer> gamesIds = new HashMap<>();
-                if(content.get(1).equals("ALL")) {
+                if(content.size() > 1 && content.get(1).equals("ALL")) {
                     for(String key: games.keySet()) {
                         if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
                             gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
                         }
                     }
-                }else if(content.get(1).equals("CURR")) {
+                }else if(content.size() > 1 && content.get(1).equals("CURR")) {
                     for(String key: games.keySet()) {
                         if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
                             gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
@@ -169,11 +169,11 @@ public class T3Server {
                     }
                 }
 
-                StringBuilder gamesList = new StringBuilder("0: open, 1: in-play, 2: finished \n\r");
+                StringBuilder gamesList = new StringBuilder("0: open, 1: in-play, 2: finished \n");
                 for (Map.Entry<String, Integer> entry: gamesIds.entrySet()) {
                     gameID = entry.getKey();
                     Integer status = entry.getValue();
-                    gamesList.append(gameID).append(" ").append(status).append("\n\r");
+                    gamesList.append(gameID).append(" ").append(status).append("\n");
                 }
                 sendResponse("GAMS "+ gamesList + "\n\r", out);
                 break;
@@ -356,7 +356,7 @@ public class T3Server {
             String content = "";
             int readChar = 0;
             while ((readChar = in.read()) != '\r') {
-                System.out.println(readChar);
+                //System.out.println(readChar);
                 content += (char)readChar;
             }
 
