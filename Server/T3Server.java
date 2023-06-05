@@ -3,7 +3,6 @@ package Server;
 import java.util.*;
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -13,7 +12,7 @@ public class T3Server {
     private static int PORT;
 
     private static HashMap<String, GameState> games;
-    private static HashMap<String, OutputStream> clientInWaiting;
+    private static HashMap<String, Object[]> clientInWaiting;
 
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
@@ -72,6 +71,7 @@ public class T3Server {
 
             // read from client
             InputStream in = socket.getInputStream();
+
             /*
                 INPUTSTREAM PAYLOAD
                 contentlength\n
@@ -89,7 +89,8 @@ public class T3Server {
              */
 
             // process client request
-            String response = processRequest(content);
+            OutputStream out = socket.getOutputStream();
+            processRequest(content, new Object[]{"tcp", out}, socket);
             /*
                 RESPONSE FORMAT
                 contentlength\n
@@ -97,40 +98,176 @@ public class T3Server {
              */
 
             // send back response to client
-            OutputStream out = socket.getOutputStream();
-            out.write(response.getBytes());
+            //OutputStream out = socket.getOutputStream();
+            // out.write(response.getBytes());
 
         }
     }
 
-    private static String processRequest(HashMap<Integer, String> content) {
-        String result = "";
+    private static void processRequest(HashMap<Integer, String> content, Object[] out, Socket socket) throws IOException {
         String command = content.get(0);
+        String clientID;
+        String sessionID;
+        String gameID;
         switch (command) {
+
             case "HELO":
-                result = "this is HELO";
+                /*
+                    1 : version
+                    2 : clientid
+                */
+                sessionID = generateRandomString();
+                clientID = content.get(2);
+                if (!clientInWaiting.containsKey(clientID)) {
+                    sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
+                }
                 break;
             case "CREA":
-                result = "this is CREA";
+                /*
+                    1 : clientid
+                */
+                clientID = content.get(1);
+                if (!clientInWaiting.containsKey(clientID)) {
+                    gameID = generateRandomString();
+                    GameState newGame = new GameState(gameID);
+                    newGame.join(clientID, out);
+                    games.put(gameID, newGame);
+                    clientInWaiting.put(clientID, out);
+                    sendResponse("JOND " + gameID + "\n\r", out);
+                }
                 break;
             case "LIST":
+                /*
+                    1 : optional parameters (ALL / CURR)
+                */
+                Map <String, Integer> gamesIds = new HashMap<>();
+                if(content.get(1).equals("ALL")) {
+                    for(String key: games.keySet()) {
+                        if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
+                            gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                        }
+                    }
+                }else if(content.get(1).equals("CURR")) {
+                    for(String key: games.keySet()) {
+                        if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
+                            gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                        }
+                    }
+                }else {
+                    for(String key: games.keySet()) {
+                        if(games.get(key).getStatus() == 0 ) {
+                            gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                        }
+                    }
+                }
+
+                StringBuilder gamesList = new StringBuilder("0: open, 1: in-play, 2: finished \n\r");
+                for (Map.Entry<String, Integer> entry: gamesIds.entrySet()) {
+                    gameID = entry.getKey();
+                    Integer status = entry.getValue();
+                    gamesList.append(gameID).append(" ").append(status).append("\n\r");
+                }
+                sendResponse("GAMS "+ gamesList + "\n\r", out);
                 break;
             case "JOIN":
+                /*
+                    1 : gameid
+                    2 : clientid
+                */
+                gameID = content.get(1);
+                clientID = content.get(2);
+                if (games.get(gameID) == null) {
+                    sendResponse("game does not exist\n\r" ,out);
+                    break;
+                }
+                GameState game = games.get(gameID);
+                String opponentid = game.getPlayerids()[0];
+
+                if (game.join(clientID, out) == 1) {
+                    sendResponse("game is full\n\r" ,out);
+                    break;
+                }
+                sendResponse("JOND " + clientID + " " + gameID + "\n\n" + "YRMV " + opponentid + " " + gameID + "\n\r" ,out);
+
+                if (game.getStatus() == 1) {
+                    // send message to opponent
+                    sendResponse("YRMV " + opponentid + " " + gameID + "\n\r" , clientInWaiting.get(opponentid));
+                }
+
+                clientInWaiting.remove(opponentid);
                 break;
             case "QUIT":
+                /*
+                    1 : gameid
+                    2 : clientid
+                 */
+                gameID = content.get(1);
+                clientID = content.get(2);
+                game = games.get(gameID);
+                game.setGameStatusToDone(clientID);
+                socket.close();
                 break;
             case "STAT":
+                /*
+                    2 : gameid
+                */
+                gameID = content.get(2);
+                game = games.get(gameID);
+                int gameStat = game.getStatus();
+                sendResponse("BORD " + gameID + " " + gameStat + "\n\r", out);
                 break;
             case "MOVE":
+                /*
+                    1 : gameid
+                    2 : location (1 - 9)
+                    3 : clientid
+                */
+                gameID = content.get(1);
+                clientID = content.get(3);
+                String spot = content.get(2);
+
+                CoordinatePair coordinatePair = new CoordinatePair(spot);
+                GameState curGame = games.get(gameID);
+
+                int moveResult = curGame.move(coordinatePair.getY(), coordinatePair.getX(), clientID);
+                if (moveResult == 0) {
+                    String[] players = curGame.getPlayerids();
+                    String nextMoveClient = curGame.getPlayerids()[curGame.getTurn() ^ 1];
+                    // BORD GID1 CID1 CID2 CID2 |*|*|*|*|X|*|*|*|*|
+                    sendResponse("BORD " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient +
+                            "\n" + curGame.displayBoard() + "\n\r", out);
+                    sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn()]);
+                    sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r",(Object[])curGame.getPlayerOutputStream()[curGame.getTurn() ^ 1]);
+
+                } else if(moveResult == 1) {
+                    sendResponse("this move is out of bound" + "\n\r", out);
+                } else if (moveResult == 2) {
+                    sendResponse("this move is already taken" + "\n\r", out);
+                } else if (moveResult == 3) {
+                    sendResponse(clientID + " wins! " + "\n\r", out);
+                } else {
+                    sendResponse("Not your turn!" + "\n\r", out);
+                }
                 break;
             case "GDBY":
+                 /*
+                    1 : gameid
+                    2 : clientid
+                 */
+                gameID = content.get(1);
+                clientID = content.get(2);
+                game = games.get(gameID);
+                game.setGameStatusToDone(clientID);
+                socket.close();
                 break;
             default:
+                sendResponse("Something went wrong" + "\n\r", out);
                 break;
         }
 
-        int contentLength = result.length();
-        return contentLength + "\n" + result;
+        // things are now returned inside the switch statement
+        //int contentLength = result.length();
+        //return contentLength + "\n" + result;
     }
 
     private static void udp(DatagramSocket socket) {
@@ -147,13 +284,12 @@ public class T3Server {
 
                 // put client request into hashmap
 
-                // process client request
+                // process and send reply
 
-                // handle commands here
                 String reply = "UDP Reply";
 
 
-
+                // all of this stuff will go in the sendresponse function
                 byte[] buffer = reply.getBytes();
                 DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
                 socket.send(response);
@@ -198,7 +334,53 @@ public class T3Server {
         return null;
     }
 
+    private static void sendResponse(String message, Object[] out) {
 
+        try {
+            String method = (String)out[0];
+            if (method.equals("tcp")) {
+                int contentLength = message.length();
+                System.out.println("Sending server response...");
+                ((OutputStream)out[1]).write((contentLength + "\n" + message).getBytes());
+                System.out.println("server response sent!");
+
+            } else {
+                // do udp stuff here
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static String generateRandomString() {
+        UUID uuid = UUID.randomUUID();
+        return uuid.toString();
+    }
+
+    private static class CoordinatePair{
+        private final int x;
+        private final int y;
+
+        public CoordinatePair(String spot) {
+            String[] coordinates = spot.split(",");
+            if (coordinates.length == 1) { // e.g 8
+                this.x = Integer.parseInt(coordinates[0]) % 3; // x = 2
+                this.y = Integer.parseInt(coordinates[0]) / 3 + 1; // y = 3
+            } else { // e.g (2, 1)
+                this.x = Integer.parseInt(coordinates[0]); // x = 2
+                this.y = 3 - Integer.parseInt(coordinates[1]) + 1; // y = 3
+            }
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+    }
 
 
 }

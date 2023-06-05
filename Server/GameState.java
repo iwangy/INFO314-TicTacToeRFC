@@ -1,5 +1,7 @@
 package Server;
 
+import java.io.OutputStream;
+
 public class GameState {
     /*
     0 : waiting for 2nd player
@@ -12,6 +14,7 @@ public class GameState {
     private String[][] board;
     private int winner;
     private String gameID;
+    private Object[][] playerOutputStream;
 
     /*
     constructs the gamestate object
@@ -23,10 +26,22 @@ public class GameState {
         board = new String[3][3];
         winner = -1;
         this.gameID = gameID;
+        playerOutputStream = new Object[2][2];
     }
 
     public String getGameID() {
         return this.gameID;
+    }
+
+    public Object[] getPlayerOutputStream() { return this.playerOutputStream; }
+
+    public void setGameStatusToDone(String playerid) {
+        if (playerid.equals(playerids[0])) {
+            this.winner = 1;
+        } else {
+            this.winner = 0;
+        }
+        this.gameStatus = 2;
     }
 
     public String[] getPlayerids() {
@@ -37,18 +52,28 @@ public class GameState {
         return turn;
     }
 
+    public int getStatus() {
+        return gameStatus;
+    }
+
+    public String getWinner() {
+        return playerids[winner];
+    }
+
     /*
 			pre:    a player name
 			post:   adds the player into the game and returns a 0
 					else, returns a 1
 			*/
-    public int join(String playerId) {
+    public int join(String playerId, Object[] out) {
         if (playerids[0] == null) {
             playerids[0] = playerId;
+            playerOutputStream[0] = out;
             return 0;
         } else if (playerids[1] == null) {
             playerids[1] = playerId;
             this.gameStatus = 1;
+            playerOutputStream[1] = out;
             return 0;
         } else {
             System.out.println("game is full");
@@ -166,14 +191,6 @@ public class GameState {
             result += "\n";
         }
         return result;
-    }
-
-    public int getStatus() {
-        return gameStatus;
-    }
-
-    public String getWinner() {
-        return playerids[winner];
     }
 
 }

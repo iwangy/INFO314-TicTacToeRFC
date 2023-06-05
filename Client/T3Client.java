@@ -2,16 +2,35 @@ package Client;
 
 import java.io.*;
 import java.net.*;
-import java.util.HashMap;
+import java.util.Scanner;
 
 public class T3Client{
 
     private static String HOST;
     private static int PORT;
 
+    private static String clientID;
+    private static String version;
+    private static boolean waitingServer;
+    private static String currentCommand;
+
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
+//        System.out.println("Enter which protocol to use: tcp or udp");
+//        Scanner protocol = new Scanner(System.in);
+//        String temp = protocol.nextLine();
+//        waitingServer = false;
+//        switch (temp.toLowerCase()) {
+//            case "tcp":
+//                sendTCP();
+//                break;
+//            case "udp":
+//                sendUDP();
+//                break;
+//            default:
+//        }
+        waitingServer = false;
         sendTCP();
         // sendUDP();
 
@@ -20,19 +39,56 @@ public class T3Client{
     private static void sendTCP() {
         try (Socket sock = new Socket(HOST, PORT)) {
             System.out.println("starting TCP");
-
-            // write command to server
-            String command = "CREA 1 C1ID";
-
-            // convert command into easier to read form
-            String payload = makePayload(command);
-            OutputStream out = sock.getOutputStream();
-            out.write(payload.getBytes());
-
-            // read and print server response
             InputStream in = sock.getInputStream();
-            String response = readServer(in);
-            System.out.println(response);
+            OutputStream out = sock.getOutputStream();
+
+            while(true) {
+                if (waitingServer) {
+                    System.out.println(readServer(in));
+                    waitingServer = false;
+                    continue;
+                }
+
+                System.out.println("Please specify your command");
+                Scanner scanner = new Scanner(System.in);
+                // write command to server
+                String command = scanner.nextLine();
+
+                // convert command into easier to read form
+                String payload = makePayload(command, in);
+                out.write(payload.getBytes());
+
+                if (currentCommand.equals("CREA") ||
+                    currentCommand.equals("JOIN")) {
+
+                    waitingServer = true;
+                    System.out.println(readServer(in));
+                    continue;
+
+                }
+
+                while (currentCommand.equals("MOVE")) {
+                    // receiving BORD
+                    System.out.println(readServer(in));
+                    // receiving YRMV
+                    System.out.println(readServer(in));
+                    // write command to server
+                    System.out.println("Please specify your command");
+                    command = scanner.nextLine();
+                    payload = makePayload(command, in);
+                    out.write(payload.getBytes());
+                    if (command.equals("QUIT") || command.equals("GDBY")) {
+                        break;
+                    }
+                }
+
+
+                // read and print server response
+                if (!waitingServer) {
+                    String response = readServer(in);
+                    System.out.println(response);
+                }
+            }
 
         }
         catch (IOException ex) {
@@ -60,13 +116,22 @@ public class T3Client{
         }
     }
 
-    private static String makePayload(String command) {
+    private static String makePayload(String command, InputStream in) {
         String result = "";
 
         String[] commandArr = command.split(" ");
+
+        currentCommand = commandArr[0];
+
+        if (currentCommand.equals("HELO")) {
+            clientID = commandArr[2];
+        }
+
         for (int i = 0; i < commandArr.length; i++) {
             result += commandArr[i] + "\n";
         }
+
+        result += clientID + "\n";
 
         int contentLength = result.length();
 
