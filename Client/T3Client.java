@@ -56,7 +56,9 @@ public class T3Client{
                 String command = scanner.nextLine();
 
                 // convert command into easier to read form
+                //String payload = makePayload(command);
                 String payload = makePayload(command);
+
 
                 while (currentCommand.equals("MOVE")) {
                     out.write(payload.getBytes());
@@ -222,29 +224,37 @@ public class T3Client{
         }
 
         for (int i = 0; i < commandArr.length; i++) {
-            result += commandArr[i] + "\n";
+            // result += commandArr[i] + "\n";
+            result += commandArr[i] + " ";
         }
 
         result += clientID + "\n";
 
-        int contentLength = result.length();
-
-        return contentLength + "\n" + result;
+        return result + "\r";
+//        int contentLength = result.length();
+//
+//        return contentLength + "\n" + result;
     }
 
     private static String readServer(InputStream in) {
         try {
-            String contentLength = "";
-            int readChar1 = 0;
-            while((readChar1 = in.read()) != '\n') {
-                contentLength += (char)readChar1;
+//            String contentLength = "";
+//            int readChar1 = 0;
+//            while((readChar1 = in.read()) != '\n') {
+//                contentLength += (char)readChar1;
+//            }
+//
+//            String serverResponse = "";
+//            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
+//                serverResponse += (char)in.read();
+//            }
+//            return serverResponse;
+            String result = "";
+            int readChar = 0;
+            while((readChar = in.read()) != '\r') {
+                result += (char)readChar;
             }
-
-            String serverResponse = "";
-            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
-                serverResponse += (char)in.read();
-            }
-            return serverResponse;
+            return result;
         } catch (Exception e) {
             e.printStackTrace();;
         }

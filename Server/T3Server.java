@@ -335,25 +335,36 @@ public class T3Server {
      */
     private static HashMap<Integer, String> readClient(InputStream in) {
         try {
-            String contentLength = "";
-            int readChar1 = 0;
-            while((readChar1 = in.read()) != '\n') {
-                contentLength += (char)readChar1;
-            }
+//            String contentLength = "";
+//            int readChar1 = 0;
+//            while((readChar1 = in.read()) != '\n') {
+//                contentLength += (char)readChar1;
+//            }
 
             int index = 0;
             HashMap<Integer, String> result = new HashMap<>();
             String content = "";
-            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
-                char curr = (char)in.read();
-                if (curr == '\n') {
-                    result.put(index, content);
-                    index++;
-                    content = "";
-                } else {
-                    content += curr;
-                }
+            int readChar = 0;
+            while ((readChar = in.read()) != '\r') {
+                content += (char)readChar;
             }
+
+            String[] temp = content.split(" ");
+            for (int i = 0; i < temp.length; i++) {
+                result.put(i, temp[i]);
+            }
+
+//            String content = "";
+//            for (int i = 0; i < Integer.valueOf(contentLength); i++) {
+//                char curr = (char)in.read();
+//                if (curr == '\n') {
+//                    result.put(index, content);
+//                    index++;
+//                    content = "";
+//                } else {
+//                    content += curr;
+//                }
+//            }
 
             return result;
         } catch (Exception e) {
@@ -367,9 +378,10 @@ public class T3Server {
         try {
             String method = (String)out[0];
             if (method.equals("tcp")) {
-                int contentLength = message.length();
+                // int contentLength = message.length();
                 System.out.println("Sending server response...");
-                ((OutputStream)out[1]).write((contentLength + "\n" + message).getBytes());
+                // ((OutputStream)out[1]).write((contentLength + "\n" + message).getBytes());
+                ((OutputStream)out[1]).write((message).getBytes());
                 System.out.println("server response sent!");
 
             } else {
