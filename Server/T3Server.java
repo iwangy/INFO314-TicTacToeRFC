@@ -47,11 +47,18 @@ public class T3Server {
             new Thread(() -> {
                 System.out.println("UDP: Server is listening on port " + PORT);
 
+                byte[] buffer = new byte[512];
+                DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+
                 while (true) {
-                    executorService.submit(() -> {
-                        //udp(udpSocket, request);
-                        udp(udpSocket);
-                    });
+                    try {
+                        udpSocket.receive(packet);  // blocks until a packet is received
+                        executorService.submit(() -> {
+                            udp(udpSocket, packet);
+                        });
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }).start();
 
@@ -244,7 +251,8 @@ public class T3Server {
                 } else if (moveResult == 2) {
                     sendResponse(moveResult + "\n" +"this move is already taken" + "\n\r", out);
                 } else if (moveResult == 3) {
-                    sendResponse(moveResult + "\n" +clientID + " wins! " + "\n\r", out);
+                    sendResponse(moveResult + "\n" + clientID + " wins! " + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn()]);
+                    sendResponse(moveResult + "\n" + clientID + " wins! " + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn() ^ 1]);
                 } else {
                     sendResponse(moveResult + "\n" +"Not your turn!" + "\n\r", out);
                 }
@@ -274,43 +282,38 @@ public class T3Server {
         //return contentLength + "\n" + result;
     }
 
-    private static void udp(DatagramSocket socket) {
+    private static void udp(DatagramSocket socket, DatagramPacket request) {
         try {
-            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
+            System.out.println("UDP: Received UDP request");
+            InetAddress clientAddress = request.getAddress();
+            int clientPort = request.getPort();
 
-            while (true) {
-                socket.receive(request);
-                System.out.println("UDP: Received UDP request");
-                InetAddress clientAddress = request.getAddress();
-                int clientPort = request.getPort();
+            String command = new String(request.getData(), 0, request.getLength());
 
-                String command = new String(request.getData(), 0, request.getLength());
-
-                // turn to hashmap
-                int index = -1;
-                HashMap<Integer, String> content = new HashMap<>();
-                String tempString = "";
-                for (char c : command.toCharArray()) {
-                    if (c == '\n') {
-                        content.put(index, tempString);
-                        index++;
-                        tempString = "";
-                    } else {
-                        tempString += c;
-                    }
+            // turn to hashmap
+            int index = -1;
+            HashMap<Integer, String> content = new HashMap<>();
+            String tempString = "";
+            for (char c : command.toCharArray()) {
+                if (c == '\n') {
+                    content.put(index, tempString);
+                    index++;
+                    tempString = "";
+                } else {
+                    tempString += c;
                 }
+            }
 
-                processRequest(content, new Object[]{"udp", socket, clientAddress, clientPort}, new Object[]{"udp", "temp"});
+            processRequest(content, new Object[]{"udp", socket, clientAddress, clientPort}, new Object[]{"udp", "temp"});
 
 
-                // handle commands here
+            // handle commands here
 //                String reply = "UDP Reply";
 //
 //
 //                byte[] buffer = reply.getBytes();
 //                DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
 //                socket.send(response);
-            }
         }
         catch(IOException ex) {
             ex.printStackTrace();

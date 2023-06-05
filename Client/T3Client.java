@@ -17,22 +17,22 @@ public class T3Client{
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
-//        System.out.println("Enter which protocol to use: tcp or udp");
-//        Scanner protocol = new Scanner(System.in);
-//        String temp = protocol.nextLine();
-//        waitingServer = false;
-//        switch (temp.toLowerCase()) {
-//            case "tcp":
-//                sendTCP();
-//                break;
-//            case "udp":
-//                sendUDP();
-//                break;
-//            default:
-//        }
+        System.out.println("Enter which protocol to use: tcp or udp");
+        Scanner protocol = new Scanner(System.in);
+        String temp = protocol.nextLine();
+        waitingServer = false;
+        switch (temp.toLowerCase()) {
+            case "tcp":
+                sendTCP();
+                break;
+            case "udp":
+                sendUDP();
+                break;
+            default:
+        }
         waitingServer = false;
 //        sendTCP();
-         sendUDP();
+////         sendUDP();
 
     }
 
@@ -43,7 +43,7 @@ public class T3Client{
             OutputStream out = sock.getOutputStream();
             boolean closed = false;
 
-            while(true) {
+            while(!closed) {
                 if (waitingServer) {
                     System.out.println(readServer(in));
                     waitingServer = false;
@@ -68,10 +68,20 @@ public class T3Client{
                         // receiving YRMV from the server
                         System.out.println(readServer(in));
                         // receiving YRMV from the other client
-                        System.out.println(readServer(in));
+                        String opponentMsg = readServer(in);
+                        try {
+                            if(parseMOVResult(opponentMsg) == 3) {
+                                System.out.println(serverMsg);
+                                sock.close();
+                                closed = true;
+                                break;
+                            }
+                        } catch (NumberFormatException ignore) {}
+                        System.out.println(opponentMsg);
                     } else if (parseMOVResult(serverMsg) == 3) {
                         System.out.println(serverMsg);
                         sock.close();
+                        closed = true;
                         break;
                     } else {
                         // receiving ERROR Message from the server
@@ -84,7 +94,9 @@ public class T3Client{
                     payload = makePayload(command);
                 }
 
-                out.write(payload.getBytes());
+                if(!closed) {
+                    out.write(payload.getBytes());
+                }
 
                 if (currentCommand.equals("CREA") ||
                     currentCommand.equals("JOIN")) {
@@ -110,7 +122,13 @@ public class T3Client{
     private static void sendUDP() {
 
         try (DatagramSocket sock = new DatagramSocket()) {
-            while(true) {
+            boolean closed = false;
+            while(!closed) {
+                if (waitingServer) {
+                    System.out.println(readUDPServer(sock));
+                    waitingServer = false;
+                    continue;
+                }
                 InetAddress host = InetAddress.getByName(HOST);
 
                 System.out.println("Please specify your command");
@@ -121,21 +139,75 @@ public class T3Client{
                 // convert command into easier to read form
                 String payload = makePayload(command);
 
-                DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
-                sock.send(packet);
+                while (currentCommand.equals("MOVE")) {
+                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
+                    sock.send(packet);
+                    String serverMsg = readUDPServer(sock);
 
-                byte[] buffer = new byte[512];
-                DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
-                sock.receive(receivedPacket);
+                    if (parseMOVResult(serverMsg) == 0) {
+                        // receiving BORD from the server
+                        System.out.println(serverMsg);
+                        // receiving YRMV from the server
+                        System.out.println(readUDPServer(sock));
+                        // receiving YRMV from the other client
+                        String opponentMsg = readUDPServer(sock);
+                        try {
+                            if (parseMOVResult(opponentMsg) == 3) {
+                                System.out.println(opponentMsg);
+                                sock.close();
+                                closed = true;
+                                break;
+                            }
+                        } catch (NumberFormatException ignore) {}
+                        System.out.println(opponentMsg);
+                    } else if (parseMOVResult(serverMsg) == 3) {
+                        System.out.println(serverMsg);
+                        sock.close();
+                        closed = true;
+                        break;
+                    } else {
+                        // receiving ERROR Message from the server
+                        System.out.println(serverMsg);
+                    }
 
-                System.out.println(new String(buffer, 0, receivedPacket.getLength()));
+                    System.out.println("Please specify your command");
+                    // write command to server
+                    command = scanner.nextLine();
+                    payload = makePayload(command);
+                }
 
+                if(!closed) {
+                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
+                    sock.send(packet);
+                }
+
+                if (currentCommand.equals("CREA") ||
+                    currentCommand.equals("JOIN")) {
+                    waitingServer = true;
+                    System.out.println(readUDPServer(sock));
+                    continue;
+                }
+
+
+                // read and print server response
+                if (!waitingServer && !closed) {
+                    String response = readUDPServer(sock);
+                    System.out.println(response);
+                }
                 //sock.close();
             }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
 
+    }
+
+    private static String readUDPServer(DatagramSocket sock) throws IOException {
+        byte[] buffer = new byte[512];
+        DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
+        sock.receive(receivedPacket);
+
+        return new String(buffer, 0, receivedPacket.getLength());
     }
 
     private static String makePayload(String command) {
