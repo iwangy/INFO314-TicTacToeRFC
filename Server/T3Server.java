@@ -227,23 +227,24 @@ public class T3Server {
                 GameState curGame = games.get(gameID);
 
                 int moveResult = curGame.move(coordinatePair.getY(), coordinatePair.getX(), clientID);
+                // [X, X, X], [X, X, X], [X, X, X] (1, 3) -> (0, 2)
                 if (moveResult == 0) {
                     String[] players = curGame.getPlayerids();
-                    String nextMoveClient = curGame.getPlayerids()[curGame.getTurn() ^ 1];
+                    String nextMoveClient = curGame.getPlayerids()[curGame.getTurn()];
                     // BORD GID1 CID1 CID2 CID2 |*|*|*|*|X|*|*|*|*|
-                    sendResponse("BORD " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient +
+                    sendResponse(moveResult + "\n" +"BORD " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient +
                             "\n" + curGame.displayBoard() + "\n\r", out);
                     sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn()]);
                     sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r",(Object[])curGame.getPlayerOutputStream()[curGame.getTurn() ^ 1]);
 
                 } else if(moveResult == 1) {
-                    sendResponse("this move is out of bound" + "\n\r", out);
+                    sendResponse(moveResult + "\n" + "this move is out of bound" + "\n\r", out);
                 } else if (moveResult == 2) {
-                    sendResponse("this move is already taken" + "\n\r", out);
+                    sendResponse(moveResult + "\n" +"this move is already taken" + "\n\r", out);
                 } else if (moveResult == 3) {
-                    sendResponse(clientID + " wins! " + "\n\r", out);
+                    sendResponse(moveResult + "\n" +clientID + " wins! " + "\n\r", out);
                 } else {
-                    sendResponse("Not your turn!" + "\n\r", out);
+                    sendResponse(moveResult + "\n" +"Not your turn!" + "\n\r", out);
                 }
                 break;
             case "GDBY":
@@ -370,8 +371,8 @@ public class T3Server {
         public CoordinatePair(String spot) {
             String[] coordinates = spot.split(",");
             if (coordinates.length == 1) { // e.g 8
-                this.x = Integer.parseInt(coordinates[0]) % 3; // x = 2
-                this.y = Integer.parseInt(coordinates[0]) / 3 + 1; // y = 3
+                this.x = Integer.parseInt(coordinates[0]) % 3 == 0 ? 3 : Integer.parseInt(coordinates[0]) % 3; // x = 2
+                this.y = Integer.parseInt(coordinates[0]) % 3 == 0 ? Integer.parseInt(coordinates[0]) / 3 : Integer.parseInt(coordinates[0]) / 3 + 1; // y = 3
             } else { // e.g (2, 1)
                 this.x = Integer.parseInt(coordinates[0]); // x = 2
                 this.y = 3 - Integer.parseInt(coordinates[1]) + 1; // y = 3

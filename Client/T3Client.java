@@ -93,7 +93,6 @@ public class T3Client{
                     continue;
                 }
 
-<<<<<<< HEAD
                 while (currentCommand.equals("MOVE")) {
                     // receiving BORD
                     System.out.println(readServer(in));
@@ -109,8 +108,6 @@ public class T3Client{
                     }
                 }
 
-=======
->>>>>>> 3376eb8 (debugged YMOVE & MOVE)
                 // read and print server response
                 if (!waitingServer && !closed) {
                     String response = readServer(in);
