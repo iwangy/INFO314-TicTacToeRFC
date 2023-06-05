@@ -41,6 +41,7 @@ public class T3Client{
             System.out.println("starting TCP");
             InputStream in = sock.getInputStream();
             OutputStream out = sock.getOutputStream();
+            boolean closed = false;
 
             while(true) {
                 if (waitingServer) {
@@ -56,17 +57,43 @@ public class T3Client{
 
                 // convert command into easier to read form
                 String payload = makePayload(command, in);
+
+                while (currentCommand.equals("MOVE")) {
+                    out.write(payload.getBytes());
+                    String serverMsg = readServer(in);
+
+                    if (parseMOVResult(serverMsg) == 0) {
+                        // receiving BORD from the server
+                        System.out.println(serverMsg);
+                        // receiving YRMV from the server
+                        System.out.println(readServer(in));
+                        // receiving YRMV from the other client
+                        System.out.println(readServer(in));
+                    } else if (parseMOVResult(serverMsg) == 3) {
+                        System.out.println(serverMsg);
+                        sock.close();
+                        break;
+                    } else {
+                        // receiving ERROR Message from the server
+                        System.out.println(serverMsg);
+                    }
+
+                    System.out.println("Please specify your command");
+                    // write command to server
+                    command = scanner.nextLine();
+                    payload = makePayload(command, in);
+                }
+
                 out.write(payload.getBytes());
 
                 if (currentCommand.equals("CREA") ||
                     currentCommand.equals("JOIN")) {
-
                     waitingServer = true;
                     System.out.println(readServer(in));
                     continue;
-
                 }
 
+<<<<<<< HEAD
                 while (currentCommand.equals("MOVE")) {
                     // receiving BORD
                     System.out.println(readServer(in));
@@ -82,8 +109,10 @@ public class T3Client{
                     }
                 }
 
+=======
+>>>>>>> 3376eb8 (debugged YMOVE & MOVE)
                 // read and print server response
-                if (!waitingServer) {
+                if (!waitingServer && !closed) {
                     String response = readServer(in);
                     System.out.println(response);
                 }
@@ -158,4 +187,7 @@ public class T3Client{
         return null;
     }
 
+    private static int parseMOVResult(String result) {
+        return Integer.parseInt(result.split("\n") [0]);
+    }
 }
