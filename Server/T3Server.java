@@ -207,11 +207,10 @@ public class T3Server {
                 clientID = content.get(2);
                 game = games.get(gameID);
                 game.setGameStatusToDone(clientID);
-                if (((String)socket[0]).equals("tcp")) {
-                    ((Socket)socket[1]).close();
-                } else {
-                    ((DatagramSocket)socket[1]).close();
-                }
+                Object[] curSocket = (Object[])game.getPlayerOutputStream()[game.getTurn()];
+                Object[] opponentSocket = (Object[])game.getPlayerOutputStream()[game.getTurn() ^ 1];
+                sendResponse(game.getWinner() + " wins! " + "\n\r", curSocket);
+                sendResponse(game.getWinner() + " wins! " + "\n\r", opponentSocket);
                 break;
             case "STAT":
                 /*
@@ -261,12 +260,22 @@ public class T3Server {
                  /*
                     1 : gameid
                     2 : clientid
+                    or
+                    2 : clientid
                  */
-                gameID = content.get(1);
-                clientID = content.get(2);
-                game = games.get(gameID);
-                game.setGameStatusToDone(clientID);
+                if (content.size() == 3) {
+                    gameID = content.get(1);
+                    clientID = content.get(2);
+                    game = games.get(gameID);
+                    game.setGameStatusToDone(clientID);
+                    curSocket = (Object[])game.getPlayerOutputStream()[game.getTurn()];
+                    opponentSocket = (Object[])game.getPlayerOutputStream()[game.getTurn() ^ 1];
+                    sendResponse(game.getWinner() + " wins! " + "\n\r", curSocket);
+                    sendResponse(game.getWinner() + " wins! " + "\n\r", opponentSocket);
+                }
+
                 if (((String)socket[0]).equals("tcp")) {
+                    sendResponse("GDBY " + "\n\r", out);
                     ((Socket)socket[1]).close();
                 } else {
                     ((DatagramSocket)socket[1]).close();
