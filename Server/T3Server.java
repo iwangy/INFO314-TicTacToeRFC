@@ -14,6 +14,8 @@ public class T3Server {
     private static HashMap<String, GameState> games;
     private static HashMap<String, Object[]> clientInWaiting;
 
+    private static HashMap<String, Object[]> clientSockets;
+
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
         games = new HashMap<>();
@@ -76,9 +78,7 @@ public class T3Server {
 
             /*
                 INPUTSTREAM PAYLOAD
-                contentlength\n
-                command\n
-                other stuff...\n
+                command otherstuff... \r
              */
 
             // put client request into hashmap
@@ -89,6 +89,8 @@ public class T3Server {
                 1 : ...
                 n : ...
              */
+
+
 
             // process client request
             OutputStream out = socket.getOutputStream();
@@ -123,12 +125,16 @@ public class T3Server {
                 if (!clientInWaiting.containsKey(clientID)) {
                     sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
                 }
+                clientSockets.put(clientID, socket);
                 break;
             case "CREA":
                 /*
                     1 : clientid
                 */
+                System.out.println("testing");
                 clientID = content.get(1);
+                System.out.println(clientID);
+
                 if (!clientInWaiting.containsKey(clientID)) {
                     gameID = generateRandomString();
                     GameState newGame = new GameState(gameID);
@@ -174,10 +180,17 @@ public class T3Server {
             case "JOIN":
                 /*
                     1 : gameid
-                    2 : clientid
                 */
                 gameID = content.get(1);
-                clientID = content.get(2);
+                clientID = "";
+                // figure out how to get this without sending it over the socket
+                for(Map.Entry<String, Object[]> entry : clientSockets.entrySet()){
+                    if (Objects.equals(entry.getValue(), socket)){
+                        clientID = entry.getKey();
+                    }
+                }
+
+
                 if (games.get(gameID) == null) {
                     sendResponse("game does not exist\n\r" ,out);
                     break;
@@ -225,9 +238,9 @@ public class T3Server {
                 /*
                     1 : gameid
                     2 : location (1 - 9)
-                    3 : clientid
                 */
                 gameID = content.get(1);
+                // figure out how to get this too
                 clientID = content.get(3);
                 String spot = content.get(2);
 
@@ -240,6 +253,7 @@ public class T3Server {
                     String[] players = curGame.getPlayerids();
                     String nextMoveClient = curGame.getPlayerids()[curGame.getTurn()];
                     // BORD GID1 CID1 CID2 CID2 |*|*|*|*|X|*|*|*|*|
+                    // figure out how to send it properly without moveResult
                     sendResponse(moveResult + "\n" +"BORD " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient +
                             "\n" + curGame.displayBoard() + "\n\r", out);
                     sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn()]);
@@ -346,6 +360,7 @@ public class T3Server {
             String content = "";
             int readChar = 0;
             while ((readChar = in.read()) != '\r') {
+                System.out.println(readChar);
                 content += (char)readChar;
             }
 

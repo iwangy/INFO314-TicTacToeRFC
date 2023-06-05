@@ -96,7 +96,9 @@ public class T3Client{
                     payload = makePayload(command);
                 }
 
+
                 if(!closed) {
+                    System.out.println(payload);
                     out.write(payload.getBytes());
                 }
 
@@ -228,7 +230,7 @@ public class T3Client{
             result += commandArr[i] + " ";
         }
 
-        result += clientID + "\n";
+        // result += clientID + "\n";
 
         return result + "\r";
 //        int contentLength = result.length();
