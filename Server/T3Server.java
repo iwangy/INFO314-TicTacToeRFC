@@ -2,6 +2,8 @@ package Server;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.io.*;
 import java.net.*;
@@ -15,6 +17,8 @@ public class T3Server {
 
     private static HashMap<String, GameState> games;
     private static HashMap<String, OutputStream> clientInWaiting;
+    private static String sessionID;
+    private static String clientID;
 
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
@@ -23,7 +27,6 @@ public class T3Server {
 
         try {
             ServerSocket tcpSocket = new ServerSocket(PORT);
-//            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
             DatagramSocket udpSocket = new DatagramSocket(PORT);
 
             new Thread(() -> {
@@ -49,16 +52,16 @@ public class T3Server {
             new Thread(() -> {
                 System.out.println("UDP: Server is listening on port " + PORT);
 
+                DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
                 while (true) {
-                    //try {
-                        //udpSocket.receive(request);
+                    try {
+                        udpSocket.receive(request);
                         executorService.submit(() -> {
-                            //udp(udpSocket, request);
-                            udp(udpSocket);
+                            udp(udpSocket, request);
                         });
-                    //} catch (IOException e) {
-                    //    throw new RuntimeException(e);
-                    //}
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }).start();
 
@@ -73,29 +76,30 @@ public class T3Server {
             InputStream in = socket.getInputStream();
             OutputStream out = socket.getOutputStream();
 
-            String clientRequest = readClient(in);
-            System.out.println("received client request: \n" + clientRequest);
-            if(clientRequest == null) {
-                sendResponse("bad request, please try again", out);
-                socket.close();
-                return ;
-            }
+            BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
 
-            JSONObject clientReqJson = new JSONObject(clientRequest);
+            String clientRequest = bufferedReader.readLine();
+            String stringData = new String(clientRequest.getBytes(), StandardCharsets.US_ASCII);
+
+            System.out.println("received client request: \n" + stringData);
+            String[] requestParts = stringData.split("\\s+");
+            String command = requestParts[0];
+
             // handle command
-            String sessionID;
-            String clientID;
-            switch (clientReqJson.getString("command")) {
+            switch (command) {
                 case "HELO":
-                    sessionID = generateRandomString();
-                    clientID = clientReqJson.getString("clientID");
-                    if (!clientInWaiting.containsKey(clientID)) {
-                        sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
+                    if(requestParts.length != 3) {
+                        sendResponse("please provide all arguments ", out);
+                    } else {
+                        sessionID = generateRandomString();
+                        clientID = requestParts[2];
+                        if (!clientInWaiting.containsKey(clientID)) {
+                            sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
+                        }
                     }
                     break;
                 case "CREA":
-                    // "JOND " CID " " + GID <- return format needs to be like this
-                    clientID = clientReqJson.getString("clientID");
+                    //clientID = requestParts[2];
                     if (!clientInWaiting.containsKey(clientID)) {
                         String gid = generateRandomString();
                         GameState newGame = new GameState(gid);
@@ -106,22 +110,21 @@ public class T3Server {
                     }
                     break;
                 case "LIST":
-                    clientID = clientReqJson.getString("clientID");
-                    if(clientInWaiting.containsKey(clientID)) {
-                        break;
-                    }
+
                     Map <String, Integer> gamesIds = new HashMap<>();
 
-                    if (clientReqJson.has("body") && clientReqJson.getString("body").equals("CURR")) {
-                        for(String key: games.keySet()) {
-                            if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
-                                gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                    if (requestParts.length > 1){
+                        if (requestParts[1].equalsIgnoreCase("CURR")) {
+                            for(String key: games.keySet()) {
+                                if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1) {
+                                    gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                                }
                             }
-                        }
-                    } else if (clientReqJson.has("body") && clientReqJson.getString("body").equals("ALL")) {
-                        for(String key: games.keySet()) {
-                            if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
-                                gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                        }else if (requestParts[1].equalsIgnoreCase("ALL")) {
+                            for(String key: games.keySet()) {
+                                if(games.get(key).getStatus() == 0 || games.get(key).getStatus() == 1 || games.get(key).getStatus() == 2) {
+                                    gamesIds.put(games.get(key).getGameID(), games.get(key).getStatus());
+                                }
                             }
                         }
                     } else {
@@ -141,53 +144,45 @@ public class T3Server {
                     System.out.println(gamesList);
                     sendResponse("GAMS "+ gamesList + "\r", out);
                     break;
-                case "JOIN": // join a given game
-                    //System.out.println("HERE");
-                    String gameID = clientReqJson.getString("body");
-                    clientID = clientReqJson.getString("clientID");
-                    if (games.get(gameID) == null) {
+                case "JOIN":
+                    String clientRequestGameID = requestParts[1];
+                    if (games.get(clientRequestGameID) == null) {
                         sendResponse("game does not exist\n\r", out);
                     } else {
-                        GameState game = games.get(gameID);
+                        GameState game = games.get(clientRequestGameID);
                         String opponent = game.getPlayerids()[0];
                         if (game.join(clientID) == 1) { // this game is full!
-                            sendResponse("gameID " + gameID + " is full!" + "\n\r", out);
+                            sendResponse("gameID " + clientRequestGameID + " is full!" + "\n\r", out);
                             break;
                         }
-                        sendResponse("JOND " + clientID + " " + gameID + "\r", out); // "JOND " CID " " + GID <- return format needs to be like this
+                        sendResponse("JOND " + clientID + " " + clientRequestGameID + "\r", out); // "JOND " CID " " + GID <- return format needs to be like this
 
                         if (game.getStatus() == 1) { // ready to start!
 //                       also have to implement logic to "Once this message is sent, the server will not accept any move commands from a client other than the one whose identifier was included in this message."
-                            sendResponse("YRMV " + opponent + " " + gameID + "\n\r", clientInWaiting.get(opponent));
-                            sendResponse("YRMV " + opponent + " " + gameID + "\n\r", out);
+                            sendResponse("YRMV " + clientRequestGameID + " " + opponent + "\n\r", clientInWaiting.get(opponent));
+                            sendResponse("YRMV " + clientRequestGameID + " " + opponent + "\n\r", out);
                         }
                         clientInWaiting.remove(opponent);
                     }
-
-                    break;
-                case "QUIT":
-//                        get game ID from client
-//                        String gid
-//                        sendResponse(out, gid);
-                    socket.close();
                     break;
                 case "STAT":
-                    gameID = clientReqJson.getString("body");
-                    System.out.println(gameID);
-
+                    String gameID = requestParts[1];
                     GameState game = games.get(gameID);
                     int gameStat = game.getStatus();
                     sendResponse("BORD " + gameID + " " + gameStat + "\n\r", out);
-
+                    break;
+                case "GDBY":
+                    socket.close();
                     break;
                 case "MOVE":
-                    gameID = clientReqJson.getString("gameID");
-                    clientID = clientReqJson.getString("clientID");
-                    String spot = clientReqJson.getString("spot");;
-
+                    if(requestParts.length != 3) {
+                        System.out.println("please provide all arguments");
+                        continue;
+                    }
+                    gameID = requestParts[1];
+                    String spot = requestParts[2];
                     CoordinatePair coordinatePair = new CoordinatePair(spot);
                     GameState curGame = games.get(gameID);
-
                     int moveResult = curGame.move(coordinatePair.getY(), coordinatePair.getX(), clientID);
                     if (moveResult == 0) {
                         String[] players = curGame.getPlayerids();
@@ -203,9 +198,13 @@ public class T3Server {
                         sendResponse("Not your turn!" + "\n\r", out);
                     }
                     break;
-                case "GDBY":
+                case "QUIT":
+                    //get game ID from client
+                    //String gid
+                    //sendResponse(out, gid);
                     socket.close();
                     break;
+
                 default:
                     sendResponse("command does not exist", out);
                     socket.close();
@@ -278,66 +277,27 @@ public class T3Server {
         return null;
     }
 
-    private static void udp(DatagramSocket socket) {
+    private static void udp(DatagramSocket socket, DatagramPacket request) {
         try {
-            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
             while (true) {
                 socket.receive(request);
                 System.out.println("UDP: Received UDP request");
                 InetAddress clientAddress = request.getAddress();
                 int clientPort = request.getPort();
 
-                String requestData = new String(request.getData(), 0, request.getLength());
-                System.out.println(requestData);
+                // handle commands here
+                String reply = "UDP Reply";
 
-                String reply = "";
 
-                JSONObject clientReqJson = new JSONObject(requestData);
-                String sessionID;
-                String clientID;
-                switch (clientReqJson.getString("command")) {
-                    case "HELO":
-                        sessionID = generateRandomString();
-                        clientID = clientReqJson.getString("clientID");
-                        if (!clientInWaiting.containsKey(clientID)) {
-                            reply = "SESS " + sessionID + " " + clientID + "\n\r";
-                        }
-                        break;
-                    case "CREA":
-                        clientID = clientReqJson.getString("clientID");
-                        if (!clientInWaiting.containsKey(clientID)) {
-                            String gid = generateRandomString();
-                            GameState newGame = new GameState(gid);
-                            newGame.join(clientID);
-                            games.put(gid, newGame);
-                            //what do value to put in clientInWaiting??
-                            reply = "JOND " + gid + "\n\r";
-
-                            //clientInWaiting.put(clientID, out);
-                            //sendResponse("JOND " + gid + "\n\r", out);
-                        }
-                        break;
-                    default:
-                        reply = "command does not exist";
-                        break;
-                }
 
                 byte[] buffer = reply.getBytes();
                 DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-                System.out.println("Sending response...");
                 socket.send(response);
-                System.out.println("Response sent!");
-                //udPSocket.close();//need to fix - keeps on closing after each CASE
+                socket.close();
             }
         }
         catch(IOException ex) {
             ex.printStackTrace();
-        }
-        finally {
-            // Close the socket outside the while loop
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
         }
     }
 

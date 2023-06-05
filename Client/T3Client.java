@@ -18,11 +18,11 @@ public class T3Client{
     public static void main(String... args) {
         HOST = "localhost";
         PORT = Integer.valueOf(31161);
-        //String temp = "tcp";
-        String temp = "udp";
 
+        System.out.println("Enter which protocol to use: tcp or udp");
+        Scanner protocol = new Scanner(System.in);
+        String temp = protocol.nextLine();
         waitingServer = false;
-        //switch (args[0].toLowerCase()) {
         switch (temp.toLowerCase()) {
             case "tcp":
                 sendTCP();
@@ -47,13 +47,12 @@ public class T3Client{
                     waitingServer = false;
                     continue;
                 }
-
                 System.out.println("Please specify your command");
                 Scanner scanner = new Scanner(System.in);
 
-                String[] command = scanner.nextLine().split(" ");
-
-                ClientMessageMethod method = ClientMessageMethod.fromString(command[0]);
+                String request = scanner.nextLine();
+                request += "\n";
+                ClientMessageMethod method = ClientMessageMethod.fromString(request.substring(0,4));
 
                 if(method == null) {
                     System.out.println("Unacceptable request");
@@ -63,132 +62,22 @@ public class T3Client{
 
                 switch (method) {
                     case CREA:
-                        // String version = "1";
-                        String CREARequest = String.format(
-                            "{command:%s," +
-                            "version:%s," +
-                            "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
-                        );
                         System.out.println("sending client request...");
-                        out.write(CREARequest.getBytes());
+                        out.write(request.getBytes());
                         System.out.println("client request sent");
                         readServerResponse(in);
+                        System.out.println("Waiting for a player to join the game...");
                         waitingServer = true;
                         break;
                     case GDBY:
                         break;
-                    case HELO:
-                        // All these come from user input args
-                        if (command.length != 3) {
-                            System.out.println("please provide all arguments");
-                            continue;
-                        }
-
-                        String playerId = command[2];
-                        // String playerId = "clientID@uw.edu";
-                        clientID = playerId;
-                        version = command[1];
-                        String HELORequest = String.format(
-                            "{command:%s," +
-                            "version:%s," +
-                            "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerId
-                        );
+                    case HELO, LIST, JOIN, STAT, MOVE:
                         System.out.println("sending client request...");
-                        out.write(HELORequest.getBytes());
+                        out.write(request.getBytes());
                         System.out.println("client request sent");
-                        break;
-                    case JOIN:
-                        ClientMessageMethod body = null;
-
-                        if (command.length > 1) {
-//                            body = ClientMessageMethod.fromString(command[1]);
-//                            System.out.println(body);
-                            //System.out.println(command[1]);
-                            String gameID = command[1];
-
-                            String JOINRequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.JOIN.getValue(), version, clientID, gameID
-                            );
-                            out.write(JOINRequest.getBytes());
-                        } else {
-                            System.out.println("You must include a game ID for the JOIN command");
-                            continue;
-                        }
-
-                        break;
-                    case LIST:
-                        body = null;
-
-                        version = "1";
-                        String LISTRequest = "";
-                        if (command.length > 1) {
-                            body = ClientMessageMethod.fromString(command[1]);
-                            System.out.println(body);
-                            LISTRequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID, body.getValue()
-                            );
-                        } else {
-                            LISTRequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "clientID:%s}\n\r", ClientMessageMethod.LIST.getValue(), version, clientID
-                            );
-                        }
-
-                        System.out.println("sending client request...");
-                        out.write(LISTRequest.getBytes());
-                        System.out.println("client request sent");
-
-                        break;
-                    case MOVE:
-                        // should be able to handle cartesian (x, y) or linear value
-                        if (command.length != 3) {
-                            System.out.println("please provide all arguments");
-                            continue;
-                        }
-                        String gameIdentifier = command[1];
-                        String spot = command[2];
-                        String MOVERequest = String.format(
-                            "{command:%s," +
-                            "clientID:%s," +
-                            "gameID:%s," +
-                            "spot:\"%s\"}\n\r", ClientMessageMethod.MOVE.getValue(), clientID, gameIdentifier, spot
-                        );
-                        System.out.println("sending client request...");
-                        out.write(MOVERequest.getBytes());
-                        System.out.println("client request sent");
-
                         break;
                     case QUIT:
                         break;
-                    case STAT:
-                         body = null;
-                        if (command.length > 1) {
-//                            body = ClientMessageMethod.fromString(command[1]);
-//                            System.out.println(body);
-                            //System.out.println(command[1]);
-                            String gameID = command[1];
-
-                            version = "1";
-                            String STATRequest = String.format(
-                                "{command:%s," +
-                                "version:%s," +
-                                "body:%s}\n\r", ClientMessageMethod.STAT.getValue(), version, gameID
-                            );
-                            out.write(STATRequest.getBytes());
-                        } else {
-                            System.out.println("You must include a game ID for the STAT command");
-                            continue;
-                        }
-
-                        break;
-
                     default:
                         System.out.println("something went wrong");
                 }
@@ -220,62 +109,18 @@ public class T3Client{
     private static void sendUDP() {
         try (DatagramSocket sock = new DatagramSocket()) {
             InetAddress host = InetAddress.getByName(HOST);
-            while(true) {
-                Scanner scanner = new Scanner(System.in);
+            // ignored message
+            String message = "hello";
+            DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
+            sock.send(packet);
 
-                String[] command = scanner.nextLine().split(" ");
-                ClientMessageMethod method = ClientMessageMethod.fromString(command[0]);
+            byte[] buffer = new byte[512];
+            DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
+            sock.receive(receivedPacket);
 
-                if(method == null) {
-                    System.out.println("Unacceptable request");
-                    sock.close();
-                }
+            System.out.println(new String(buffer, 0, receivedPacket.getLength()));
 
-                String message = "";
-
-                switch (method) {
-                    case HELO:
-                        if (command.length != 3) {
-                            System.out.println("please provide all arguments");
-                        }
-
-                        String playerId = command[2];
-                        clientID = playerId;
-                        version = command[1];
-                        String HELORequest = String.format(
-                            "{command:%s," +
-                            "version:%s," +
-                            "clientID:%s}\n\r", ClientMessageMethod.HELO.getValue(), version, playerId
-                        );
-                        System.out.println("sending client request...");
-                        message = HELORequest;
-                        DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
-                        sock.send(packet);
-                        System.out.println("client request sent");
-                        break;
-                    case CREA:
-                        String CREARequest = String.format(
-                            "{command:%s," +
-                            "version:%s," +
-                            "clientID:%s}\n\r", ClientMessageMethod.CREA.getValue(), version, clientID
-                        );
-                        System.out.println("sending client request...");
-                        message = CREARequest;
-                        packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
-                        sock.send(packet);
-                        System.out.println("client request sent");
-                        waitingServer = true;
-                        break;
-                    default:
-                        System.out.println("something went wrong");
-                        break;
-                }
-                byte[] buffer = new byte[512];
-                DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
-                sock.receive(receivedPacket);
-                System.out.println(new String(buffer, 0, receivedPacket.getLength()));
-            }
-            //sock.close();
+            sock.close();
         } catch (IOException ex) {
             ex.printStackTrace();
         }
