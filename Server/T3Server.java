@@ -20,6 +20,7 @@ public class T3Server {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
         games = new HashMap<>();
         clientInWaiting = new HashMap<>();
+        clientSockets = new HashMap<>();
 
         try {
             ServerSocket tcpSocket = new ServerSocket(PORT);
