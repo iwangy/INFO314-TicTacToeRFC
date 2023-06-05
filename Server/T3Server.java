@@ -14,7 +14,7 @@ public class T3Server {
     private static HashMap<String, GameState> games;
     private static HashMap<String, Object[]> clientInWaiting;
 
-    private static HashMap<String, Object[]> clientSockets;
+    private static HashMap<Object, String> clientSockets;
 
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 31161;
@@ -126,13 +126,12 @@ public class T3Server {
                 if (!clientInWaiting.containsKey(clientID)) {
                     sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
                 }
-                clientSockets.put(clientID, socket);
+                clientSockets.put(socket[1], clientID);
                 break;
             case "CREA":
                 /*
                     1 : clientid
                 */
-                System.out.println("testing");
                 clientID = content.get(1);
                 System.out.println(clientID);
 
@@ -183,13 +182,8 @@ public class T3Server {
                     1 : gameid
                 */
                 gameID = content.get(1);
-                clientID = "";
+                clientID = clientSockets.get(socket[1]);
                 // figure out how to get this without sending it over the socket
-                for(Map.Entry<String, Object[]> entry : clientSockets.entrySet()){
-                    if (Objects.equals(entry.getValue(), socket)){
-                        clientID = entry.getKey();
-                    }
-                }
 
 
                 if (games.get(gameID) == null) {
@@ -197,12 +191,12 @@ public class T3Server {
                     break;
                 }
                 GameState game = games.get(gameID);
-                String opponentid = game.getPlayerids()[0];
-
                 if (game.join(clientID, out) == 1) {
                     sendResponse("game is full\n\r" ,out);
                     break;
                 }
+                String opponentid = game.getPlayerids()[0];
+
                 sendResponse("JOND " + clientID + " " + gameID + "\n\n" + "YRMV " + opponentid + " " + gameID + "\n\r" ,out);
 
                 if (game.getStatus() == 1) {
@@ -242,8 +236,8 @@ public class T3Server {
                 */
                 gameID = content.get(1);
                 // figure out how to get this too
-                clientID = content.get(3);
                 String spot = content.get(2);
+                clientID = content.get(3);
 
                 CoordinatePair coordinatePair = new CoordinatePair(spot);
                 GameState curGame = games.get(gameID);
