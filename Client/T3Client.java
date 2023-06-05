@@ -56,7 +56,7 @@ public class T3Client{
                 String command = scanner.nextLine();
 
                 // convert command into easier to read form
-                String payload = makePayload(command, in);
+                String payload = makePayload(command);
 
                 while (currentCommand.equals("MOVE")) {
                     out.write(payload.getBytes());
@@ -81,7 +81,7 @@ public class T3Client{
                     System.out.println("Please specify your command");
                     // write command to server
                     command = scanner.nextLine();
-                    payload = makePayload(command, in);
+                    payload = makePayload(command);
                 }
 
                 out.write(payload.getBytes());
@@ -93,20 +93,6 @@ public class T3Client{
                     continue;
                 }
 
-                while (currentCommand.equals("MOVE")) {
-                    // receiving BORD
-                    System.out.println(readServer(in));
-                    // receiving YRMV
-                    System.out.println(readServer(in));
-                    // write command to server
-                    System.out.println("Please specify your command");
-                    command = scanner.nextLine();
-                    payload = makePayload(command, in);
-                    out.write(payload.getBytes());
-                    if (command.equals("QUIT") || command.equals("GDBY")) {
-                        break;
-                    }
-                }
 
                 // read and print server response
                 if (!waitingServer && !closed) {
@@ -122,28 +108,37 @@ public class T3Client{
     }
 
     private static void sendUDP() {
+
         try (DatagramSocket sock = new DatagramSocket()) {
-            InetAddress host = InetAddress.getByName(HOST);
-            // ignored message
+            while(true) {
+                InetAddress host = InetAddress.getByName(HOST);
 
+                System.out.println("Please specify your command");
+                Scanner scanner = new Scanner(System.in);
+                // write command to server
+                String command = scanner.nextLine();
 
-            String message = "hello";
-            DatagramPacket packet = new DatagramPacket(message.getBytes(), message.length(), host, PORT);
-            sock.send(packet);
+                // convert command into easier to read form
+                String payload = makePayload(command);
 
-            byte[] buffer = new byte[512];
-            DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
-            sock.receive(receivedPacket);
+                DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
+                sock.send(packet);
 
-            System.out.println(new String(buffer, 0, receivedPacket.getLength()));
+                byte[] buffer = new byte[512];
+                DatagramPacket receivedPacket = new DatagramPacket(buffer, buffer.length);
+                sock.receive(receivedPacket);
 
-            sock.close();
+                System.out.println(new String(buffer, 0, receivedPacket.getLength()));
+
+                //sock.close();
+            }
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+
     }
 
-    private static String makePayload(String command, InputStream in) {
+    private static String makePayload(String command) {
         String result = "";
 
         String[] commandArr = command.split(" ");

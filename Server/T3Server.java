@@ -202,6 +202,8 @@ public class T3Server {
                 game.setGameStatusToDone(clientID);
                 if (((String)socket[0]).equals("tcp")) {
                     ((Socket)socket[1]).close();
+                } else {
+                    ((DatagramSocket)socket[1]).close();
                 }
                 break;
             case "STAT":
@@ -258,6 +260,8 @@ public class T3Server {
                 game.setGameStatusToDone(clientID);
                 if (((String)socket[0]).equals("tcp")) {
                     ((Socket)socket[1]).close();
+                } else {
+                    ((DatagramSocket)socket[1]).close();
                 }
                 break;
             default:
@@ -272,34 +276,40 @@ public class T3Server {
 
     private static void udp(DatagramSocket socket) {
         try {
-            System.out.println("UDP: Server is listening on port " + PORT);
+            DatagramPacket request = new DatagramPacket(new byte[512], new byte[512].length);
+
             while (true) {
-                DatagramPacket request = new DatagramPacket(new byte[512], 1);
                 socket.receive(request);
                 System.out.println("UDP: Received UDP request");
-
                 InetAddress clientAddress = request.getAddress();
                 int clientPort = request.getPort();
 
-                // read from client
-                byte[] requestData = request.getData();
+                String command = new String(request.getData(), 0, request.getLength());
 
-                // put client request into hashmap
-                // HashMap<Integer, String> content = readClient(new ByteArrayInputStream(requestData));
+                // turn to hashmap
+                int index = -1;
+                HashMap<Integer, String> content = new HashMap<>();
+                String tempString = "";
+                for (char c : command.toCharArray()) {
+                    if (c == '\n') {
+                        content.put(index, tempString);
+                        index++;
+                        tempString = "";
+                    } else {
+                        tempString += c;
+                    }
+                }
 
-                // process and send reply
-//                ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
-//                ObjectOutputStream responseOut = new ObjectOutputStream(responseStream);
-
-                // processRequest(content, new Object[]{"udp", responseOut}, new Object[]{"udp",socket});
-
-                String reply = "UDP Reply";
+                processRequest(content, new Object[]{"udp", socket, clientAddress, clientPort}, new Object[]{"udp", "temp"});
 
 
-                byte[] buffer = reply.getBytes();
-                DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-                socket.send(response);
-                socket.close();
+                // handle commands here
+//                String reply = "UDP Reply";
+//
+//
+//                byte[] buffer = reply.getBytes();
+//                DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
+//                socket.send(response);
             }
         }
         catch(IOException ex) {
@@ -351,7 +361,9 @@ public class T3Server {
                 System.out.println("server response sent!");
 
             } else {
-                // do udp stuff here
+                byte[] buffer = message.getBytes();
+                DatagramPacket response = new DatagramPacket(buffer, buffer.length, (InetAddress)out[2], (int)out[3]);
+                ((DatagramSocket)out[1]).send(response);
             }
 
         } catch (IOException e) {
