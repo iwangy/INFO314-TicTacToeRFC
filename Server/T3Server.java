@@ -142,7 +142,7 @@ public class T3Server {
                 */
                 clientID = content.get(1);
                 curClient = clientID;
-                System.out.println(clientID);
+                //System.out.println(clientID);
 
                 if (!clientInWaiting.containsKey(clientID)) {
                     gameID = generateRandomString();
@@ -235,9 +235,9 @@ public class T3Server {
                 break;
             case "STAT":
                 /*
-                    2 : gameid
+                    1 : gameid
                 */
-                gameID = content.get(2);
+                gameID = content.get(1);
                 game = games.get(gameID);
                 int gameStat = game.getStatus();
                 sendResponse("BORD " + gameID + " " + gameStat + "\n\r", out);

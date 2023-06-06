@@ -98,7 +98,7 @@ public class T3Client{
 
 
                 if(!closed) {
-                    System.out.println(payload);
+                    //System.out.println(payload);
                     out.write(payload.getBytes());
                 }
 
