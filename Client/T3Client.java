@@ -6,38 +6,68 @@ import java.util.Scanner;
 
 public class T3Client{
 
-    private static String HOST;
-    private static int PORT;
+//    private static String HOST;
+//    private static int PORT;
 
     private static String clientID;
     private static String version;
     private static boolean waitingServer;
     private static String currentCommand;
 
-    public static void main(String... args) {
-        HOST = "localhost";
-        PORT = Integer.valueOf(3116);
-        System.out.println("Enter which protocol to use: tcp or udp");
-        Scanner protocol = new Scanner(System.in);
-        String temp = protocol.nextLine();
-        waitingServer = false;
-        switch (temp.toLowerCase()) {
-            case "tcp":
-                sendTCP();
-                break;
-            case "udp":
-                sendUDP();
-                break;
-            default:
-        }
-        waitingServer = false;
-//        sendTCP();
-////         sendUDP();
 
+
+    public static void main(String... args) {
+//        HOST = "localhost";
+//        PORT = Integer.valueOf(3116);
+//        System.out.println("Enter which protocol to use: tcp or udp");
+//        Scanner protocol = new Scanner(System.in);
+//        String temp = protocol.nextLine();
+//        waitingServer = false;
+//        switch (temp.toLowerCase()) {
+//            case "tcp":
+//                sendTCP();
+//                break;
+//            case "udp":
+//                sendUDP();
+//                break;
+//            default:
+//        }
+//        waitingServer = false;
+//        sendTCP();
+//        sendUDP();
+        String host = "";
+        int port = -1;
+
+        System.out.println("Enter the TicTacToe server URL (e.g., t3tcp://localhost or t3tcp://localhost:4567):");
+        Scanner urlScanner = new Scanner(System.in);
+        String url = urlScanner.nextLine();
+
+        if (url.startsWith("t3tcp://")) {
+            String[] parts = url.split(":");
+            host = parts[1].substring(2); // Extract host after "t3tcp://"
+            if (parts.length > 2) {
+                port = Integer.valueOf(parts[2]);
+            } else {
+                port = 3116; // Default TCP port
+            }
+            sendTCP(host, port);
+        } else if (url.startsWith("t3udp://")) {
+            String[] parts = url.split(":");
+            host = parts[1].substring(2); // Extract host after "t3udp://"
+            if (parts.length > 2) {
+                port = Integer.valueOf(parts[2]);
+            } else {
+                port = 3116; // Default UDP port
+            }
+            sendUDP(host, port);
+        } else {
+            System.out.println("Invalid URL. Please use either the t3tcp or t3udp scheme.");
+            return;
+        }
     }
 
-    private static void sendTCP() {
-        try (Socket sock = new Socket(HOST, PORT)) {
+    private static void sendTCP(String host, int port) {
+        try (Socket sock = new Socket(host, port)) {
             System.out.println("starting TCP");
             InputStream in = sock.getInputStream();
             OutputStream out = sock.getOutputStream();
@@ -123,7 +153,7 @@ public class T3Client{
         }
     }
 
-    private static void sendUDP() {
+    private static void sendUDP(String host, int port) {
 
         try (DatagramSocket sock = new DatagramSocket()) {
             boolean closed = false;
@@ -133,7 +163,7 @@ public class T3Client{
                     waitingServer = false;
                     continue;
                 }
-                InetAddress host = InetAddress.getByName(HOST);
+                InetAddress hostUDP = InetAddress.getByName(host);
 
                 System.out.println("Please specify your command");
                 Scanner scanner = new Scanner(System.in);
@@ -144,7 +174,7 @@ public class T3Client{
                 String payload = makePayload(command);
 
                 while (currentCommand.equals("MOVE")) {
-                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
+                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), hostUDP, port);
                     sock.send(packet);
                     String serverMsg = readUDPServer(sock);
 
@@ -181,7 +211,7 @@ public class T3Client{
                 }
 
                 if(!closed) {
-                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), host, PORT);
+                    DatagramPacket packet = new DatagramPacket(payload.getBytes(), payload.length(), hostUDP, port);
                     sock.send(packet);
                 }
 
