@@ -16,11 +16,16 @@ public class T3Server {
 
     private static HashMap<Object, String> clientSockets;
 
+    private static HashMap<DatagramSocket, String> udpSockets;
+
+    private static String curClient;
+
     public static void main(String... args) {
         PORT = args.length == 1 ? Integer.parseInt(args[0]) : 3116;
         games = new HashMap<>();
         clientInWaiting = new HashMap<>();
         clientSockets = new HashMap<>();
+        udpSockets = new HashMap<>();
 
         try {
             ServerSocket tcpSocket = new ServerSocket(PORT);
@@ -52,10 +57,9 @@ public class T3Server {
 
                 byte[] buffer = new byte[512];
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-
                 while (true) {
                     try {
-                        udpSocket.receive(packet);  // blocks until a packet is received
+                        udpSocket.receive(packet);
                         executorService.submit(() -> {
                             udp(udpSocket, packet);
                         });
@@ -126,13 +130,18 @@ public class T3Server {
                 if (!clientInWaiting.containsKey(clientID)) {
                     sendResponse("SESS " + sessionID + " " + clientID + "\n\r", out);
                 }
-                clientSockets.put(socket[1], clientID);
+                if (socket[0].equals("tcp")) {
+                    clientSockets.put(socket[1], clientID);
+                } else {
+                    clientSockets.put(socket[1] + clientID, clientID);
+                }
                 break;
             case "CREA":
                 /*
                     1 : clientid
                 */
                 clientID = content.get(1);
+                curClient = clientID;
                 System.out.println(clientID);
 
                 if (!clientInWaiting.containsKey(clientID)) {
@@ -182,7 +191,11 @@ public class T3Server {
                     1 : gameid
                 */
                 gameID = content.get(1);
-                clientID = clientSockets.get(socket[1]);
+                if (socket[0].equals("tcp")) {
+                    clientID = clientSockets.get(socket[1]);
+                } else {
+                    clientID = curClient;
+                }
                 // figure out how to get this without sending it over the socket
 
 
@@ -237,8 +250,11 @@ public class T3Server {
                 gameID = content.get(1);
                 // figure out how to get this too
                 String spot = content.get(2);
-                clientID = clientSockets.get(socket[1]);
-
+                if (socket[0].equals("tcp")) {
+                    clientID = clientSockets.get(socket[1]);
+                } else {
+                    clientID = curClient;
+                }
 
                 CoordinatePair coordinatePair = new CoordinatePair(spot);
                 GameState curGame = games.get(gameID);
@@ -254,7 +270,7 @@ public class T3Server {
                             "\n" + curGame.displayBoard() + "\n\r", out);
                     sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r", (Object[])curGame.getPlayerOutputStream()[curGame.getTurn()]);
                     sendResponse("YRMV " + gameID + " " + players[0] + " " + players[1] + " " + nextMoveClient + "\n\r",(Object[])curGame.getPlayerOutputStream()[curGame.getTurn() ^ 1]);
-
+                    curClient = nextMoveClient;
                 } else if(moveResult == 1) {
                     sendResponse(moveResult + "\n" + "this move is out of bound" + "\n\r", out);
                 } else if (moveResult == 2) {
@@ -310,11 +326,11 @@ public class T3Server {
             String command = new String(request.getData(), 0, request.getLength());
 
             // turn to hashmap
-            int index = -1;
+            int index = 0;
             HashMap<Integer, String> content = new HashMap<>();
             String tempString = "";
             for (char c : command.toCharArray()) {
-                if (c == '\n') {
+                if (c == ' ') {
                     content.put(index, tempString);
                     index++;
                     tempString = "";
@@ -323,7 +339,7 @@ public class T3Server {
                 }
             }
 
-            processRequest(content, new Object[]{"udp", socket, clientAddress, clientPort}, new Object[]{"udp", "temp"});
+            processRequest(content, new Object[]{"udp", socket, clientAddress, clientPort}, new Object[]{"udp", socket});
 
 
             // handle commands here
